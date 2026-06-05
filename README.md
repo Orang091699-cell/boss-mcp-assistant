@@ -55,14 +55,14 @@
 ### 安装
 
 ```bash
-npm install -g @orang091699/boss-mcp-assistant
+npm install -g boss-mcp-assistant
 ```
 
 全局安装后，命令行提供 `boss-recommend-mcp` 命令。
 
 也可通过 npx 直接运行：
 ```bash
-npx @orang091699/boss-mcp-assistant start
+npx boss-mcp-assistant start
 ```
 
 ### 配置
