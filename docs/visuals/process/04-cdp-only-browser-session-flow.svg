@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="1040" viewBox="0 0 1180 1040" role="img" aria-labelledby="title desc">
+  <title id="title">CDP-Only Browser Session Flow</title>
+  <desc id="desc">Flowchart showing automatic local Chrome launch, Boss login detection, guarded CDP usage, and Runtime blocking.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155" />
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .node { fill: #ffffff; stroke: #334155; stroke-width: 1.6; rx: 10; }
+      .decision { fill: #fff7ed; stroke: #c2410c; stroke-width: 1.6; }
+      .error { fill: #fef2f2; stroke: #b91c1c; stroke-width: 1.6; rx: 10; }
+      .ok { fill: #ecfdf5; stroke: #047857; stroke-width: 1.6; rx: 10; }
+      .title { font: 700 26px Arial, sans-serif; fill: #0f172a; }
+      .label { font: 600 15px Arial, sans-serif; fill: #0f172a; }
+      .small { font: 13px Arial, sans-serif; fill: #334155; }
+      .edge { fill: none; stroke: #334155; stroke-width: 1.5; marker-end: url(#arrow); }
+      .edge-label { font: 12px Arial, sans-serif; fill: #475569; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1180" height="1040" />
+  <text class="title" x="40" y="48">4. CDP-Only Browser Session Flow</text>
+
+  <rect class="node" x="400" y="78" width="380" height="64" />
+  <text class="label" x="590" y="105" text-anchor="middle">connectToChromeTargetOrOpen</text>
+  <text class="small" x="590" y="126" text-anchor="middle">domain target URL: recommend / search / chat</text>
+
+  <polygon class="decision" points="590,184 780,244 590,304 400,244" />
+  <text class="label" x="590" y="238" text-anchor="middle">DevTools port</text>
+  <text class="label" x="590" y="258" text-anchor="middle">reachable?</text>
+
+  <rect class="node" x="120" y="338" width="300" height="74" />
+  <text class="label" x="270" y="368" text-anchor="middle">List existing targets</text>
+  <text class="small" x="270" y="390" text-anchor="middle">reuse Chrome 127.0.0.1:9222</text>
+
+  <rect class="node" x="440" y="338" width="300" height="86" />
+  <text class="label" x="590" y="366" text-anchor="middle">Launch local Chrome</text>
+  <text class="small" x="590" y="388" text-anchor="middle">--remote-debugging-port</text>
+  <text class="small" x="590" y="408" text-anchor="middle">isolated Boss MCP profile</text>
+
+  <rect class="error" x="770" y="338" width="300" height="74" />
+  <text class="label" x="920" y="368" text-anchor="middle">Fail for remote host</text>
+  <text class="small" x="920" y="390" text-anchor="middle">remote debug must already be reachable</text>
+
+  <polygon class="decision" points="270,470 440,530 270,590 100,530" />
+  <text class="label" x="270" y="524" text-anchor="middle">Requested Boss</text>
+  <text class="label" x="270" y="544" text-anchor="middle">tab exists?</text>
+
+  <rect class="node" x="530" y="492" width="300" height="76" />
+  <text class="label" x="680" y="522" text-anchor="middle">Open new target</text>
+  <text class="small" x="680" y="544" text-anchor="middle">/json/new with correct Boss URL</text>
+
+  <rect class="node" x="120" y="638" width="300" height="74" />
+  <text class="label" x="270" y="668" text-anchor="middle">Connect to target</text>
+  <text class="small" x="270" y="690" text-anchor="middle">chrome-remote-interface session</text>
+
+  <rect class="ok" x="480" y="638" width="300" height="74" />
+  <text class="label" x="630" y="668" text-anchor="middle">Guard CDP client</text>
+  <text class="small" x="630" y="690" text-anchor="middle">record every method, block Runtime.*</text>
+
+  <rect class="node" x="480" y="760" width="300" height="74" />
+  <text class="label" x="630" y="790" text-anchor="middle">Enable allowed domains</text>
+  <text class="small" x="630" y="812" text-anchor="middle">Page, DOM, Input, Network, Accessibility</text>
+
+  <polygon class="decision" points="630,880 820,940 630,1000 440,940" />
+  <text class="label" x="630" y="925" text-anchor="middle">Boss login detected?</text>
+  <text class="small" x="630" y="948" text-anchor="middle">URL or DOM-only login panel</text>
+
+  <rect class="error" x="860" y="904" width="260" height="74" />
+  <text class="label" x="990" y="934" text-anchor="middle">BOSS_LOGIN_REQUIRED</text>
+  <text class="small" x="990" y="956" text-anchor="middle">human logs in, same args retry</text>
+
+  <rect class="ok" x="80" y="904" width="300" height="74" />
+  <text class="label" x="230" y="934" text-anchor="middle">Proceed CDP-only</text>
+  <text class="small" x="230" y="956" text-anchor="middle">DOM roots, box models, Input clicks</text>
+
+  <path class="edge" d="M590 142 L590 181" />
+  <path class="edge" d="M440 244 C360 244 270 272 270 334" />
+  <text class="edge-label" x="320" y="268">yes</text>
+  <path class="edge" d="M590 304 L590 334" />
+  <text class="edge-label" x="610" y="326">no, local</text>
+  <path class="edge" d="M742 258 C850 272 920 300 920 334" />
+  <text class="edge-label" x="842" y="280">no, remote</text>
+  <path class="edge" d="M440 382 C380 410 310 426 282 468" />
+  <path class="edge" d="M590 424 C590 454 432 488 364 514" />
+  <path class="edge" d="M440 530 L526 530" />
+  <text class="edge-label" x="468" y="520">no</text>
+  <path class="edge" d="M680 568 C580 610 450 646 424 666" />
+  <path class="edge" d="M270 590 L270 634" />
+  <text class="edge-label" x="288" y="616">yes</text>
+  <path class="edge" d="M420 675 L476 675" />
+  <path class="edge" d="M630 712 L630 756" />
+  <path class="edge" d="M630 834 L630 876" />
+  <path class="edge" d="M820 940 L856 940" />
+  <text class="edge-label" x="832" y="930">yes</text>
+  <path class="edge" d="M440 940 L384 940" />
+  <text class="edge-label" x="402" y="930">no</text>
+</svg>

@@ -1,0 +1,1037 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+import { getScreenConfigResolution, resolveSharedLlmTransportConfig } from "./adapters.js";
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const packageRoot = path.resolve(path.dirname(currentFilePath), "..");
+const VENDORED_BOSS_CHAT_DIR = path.join(packageRoot, "vendor", "boss-chat-cli");
+const DEFAULT_BOSS_CHAT_POLL_MS = 1500;
+const PREPARE_BOSS_CHAT_MAX_ATTEMPTS = 3;
+const PREPARE_BOSS_CHAT_RETRY_DELAY_MS = 1200;
+const BOSS_CHAT_TERMINAL_STATES = new Set(["completed", "failed", "canceled"]);
+const CHAT_REQUIRED_FIELDS = ["job", "start_from", "target_count", "criteria"];
+const BOSS_CHAT_RUNTIME_SUBDIR = "boss-chat";
+const BOSS_CHAT_RUNTIME_CHILD_DIRS = ["logs", "runs", "profiles", "reports", "artifacts", "state"];
+export const TARGET_COUNT_CANONICAL_ALL = "all";
+export const TARGET_COUNT_ACCEPTED_EXAMPLES = [TARGET_COUNT_CANONICAL_ALL, -1, 20, "全部候选人"];
+const TARGET_COUNT_WRAPPER_KEYS = ["target_count", "targetCount", "value", "count", "limit"];
+const LLM_THINKING_LEVEL_FIELDS = [
+  "llmThinkingLevel",
+  "thinkingLevel",
+  "reasoningEffort",
+  "reasoning_effort"
+];
+
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function pathExists(targetPath) {
+  try {
+    return fs.existsSync(targetPath);
+  } catch {
+    return false;
+  }
+}
+
+function getStateHome() {
+  return process.env.BOSS_RECOMMEND_HOME
+    ? path.resolve(process.env.BOSS_RECOMMEND_HOME)
+    : path.join(os.homedir(), ".boss-recommend-mcp");
+}
+
+function isRootDirectory(targetPath) {
+  const resolved = path.resolve(String(targetPath || ""));
+  const parsed = path.parse(resolved);
+  return resolved.toLowerCase() === String(parsed.root || "").toLowerCase();
+}
+
+function isSystemDirectoryWorkspaceRoot(workspaceRoot) {
+  const root = path.resolve(String(workspaceRoot || ""));
+  const normalized = root.replace(/\\/g, "/").toLowerCase();
+  if (process.platform === "win32") {
+    return (
+      normalized.endsWith("/windows")
+      || normalized.endsWith("/windows/system32")
+      || normalized.endsWith("/windows/syswow64")
+      || normalized.endsWith("/program files")
+      || normalized.endsWith("/program files (x86)")
+    );
+  }
+  return (
+    normalized === "/system"
+    || normalized.startsWith("/system/")
+    || normalized === "/usr"
+    || normalized.startsWith("/usr/")
+    || normalized === "/bin"
+    || normalized.startsWith("/bin/")
+    || normalized === "/sbin"
+    || normalized.startsWith("/sbin/")
+  );
+}
+
+function isEphemeralWorkspaceRoot(workspaceRoot) {
+  const normalized = path.resolve(String(workspaceRoot || ""))
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  return (
+    normalized.includes("/appdata/local/npm-cache/_npx/")
+    || normalized.includes("/node_modules/@reconcrap/boss-recommend-mcp")
+  );
+}
+
+function isSafeBossChatLegacyWorkspaceRoot(workspaceRoot) {
+  const root = path.resolve(String(workspaceRoot || ""));
+  if (!root) return false;
+  const home = path.resolve(os.homedir());
+  return !(
+    isEphemeralWorkspaceRoot(root)
+    || isRootDirectory(root)
+    || root.toLowerCase() === home.toLowerCase()
+    || isSystemDirectoryWorkspaceRoot(root)
+  );
+}
+
+function isUnsafeBossChatDataDir(targetPath) {
+  const resolved = path.resolve(String(targetPath || ""));
+  return isRootDirectory(resolved) || isSystemDirectoryWorkspaceRoot(resolved);
+}
+
+function resolveBossChatDataDir() {
+  if (process.env.BOSS_CHAT_HOME) {
+    return {
+      data_dir: path.resolve(process.env.BOSS_CHAT_HOME),
+      data_dir_source: "env:BOSS_CHAT_HOME"
+    };
+  }
+  const stateHome = getStateHome();
+  const source = process.env.BOSS_RECOMMEND_HOME
+    ? "default:env:BOSS_RECOMMEND_HOME"
+    : "default:user_home";
+  return {
+    data_dir: path.join(stateHome, BOSS_CHAT_RUNTIME_SUBDIR),
+    data_dir_source: source
+  };
+}
+
+export function getBossChatDataDir() {
+  return resolveBossChatDataDir().data_dir;
+}
+
+export function getLegacyBossChatWorkspaceDataDir(workspaceRoot) {
+  if (!isSafeBossChatLegacyWorkspaceRoot(workspaceRoot)) return null;
+  return path.join(path.resolve(String(workspaceRoot)), ".boss-chat");
+}
+
+export function resolveBossChatRuntimeLayout(workspaceRoot) {
+  const resolvedDataDir = resolveBossChatDataDir();
+  const dataDir = resolvedDataDir.data_dir;
+  const legacyWorkspaceDir = getLegacyBossChatWorkspaceDataDir(workspaceRoot);
+  const migrationSourceDir =
+    legacyWorkspaceDir && pathExists(legacyWorkspaceDir) && !pathExists(dataDir)
+      ? legacyWorkspaceDir
+      : null;
+  return {
+    workspace_root: workspaceRoot ? path.resolve(String(workspaceRoot)) : null,
+    data_dir: dataDir,
+    data_dir_source: resolvedDataDir.data_dir_source,
+    legacy_workspace_dir: legacyWorkspaceDir,
+    migration_source_dir: migrationSourceDir,
+    migration_pending: Boolean(migrationSourceDir),
+    directories: [
+      dataDir,
+      ...BOSS_CHAT_RUNTIME_CHILD_DIRS.map((name) => path.join(dataDir, name))
+    ]
+  };
+}
+
+export function ensureBossChatRuntimeReady(workspaceRoot) {
+  const runtime = resolveBossChatRuntimeLayout(workspaceRoot);
+  const created = [];
+  const existed = [];
+  const failed = [];
+  let migration = {
+    attempted: false,
+    performed: false,
+    source: runtime.migration_source_dir,
+    target: runtime.data_dir,
+    message: runtime.migration_source_dir
+      ? `Pending legacy boss-chat migration from ${runtime.migration_source_dir}`
+      : ""
+  };
+
+  if (isUnsafeBossChatDataDir(runtime.data_dir)) {
+    return {
+      ...runtime,
+      created,
+      existed,
+      failed: [
+        {
+          path: runtime.data_dir,
+          message: `Refusing unsafe boss-chat runtime path: ${runtime.data_dir}. Please use BOSS_CHAT_HOME in a writable user directory.`
+        }
+      ],
+      migration,
+      blocked_reason: "UNSAFE_DATA_DIR"
+    };
+  }
+
+  if (runtime.migration_source_dir) {
+    try {
+      fs.cpSync(runtime.migration_source_dir, runtime.data_dir, {
+        recursive: true,
+        force: false,
+        errorOnExist: false
+      });
+      migration = {
+        attempted: true,
+        performed: true,
+        source: runtime.migration_source_dir,
+        target: runtime.data_dir,
+        message: `Migrated legacy boss-chat runtime from ${runtime.migration_source_dir} to ${runtime.data_dir}. Legacy source was preserved.`
+      };
+    } catch (error) {
+      migration = {
+        attempted: true,
+        performed: false,
+        source: runtime.migration_source_dir,
+        target: runtime.data_dir,
+        message: error?.message || "Legacy boss-chat migration failed."
+      };
+      failed.push({
+        path: runtime.data_dir,
+        message: `Legacy migration failed: ${migration.message}`
+      });
+    }
+  }
+
+  for (const directory of runtime.directories) {
+    try {
+      const existedBefore = pathExists(directory);
+      fs.mkdirSync(directory, { recursive: true });
+      if (existedBefore) {
+        existed.push(directory);
+      } else {
+        created.push(directory);
+      }
+    } catch (error) {
+      failed.push({
+        path: directory,
+        message: error?.message || String(error)
+      });
+    }
+  }
+
+  return {
+    ...runtime,
+    created,
+    existed,
+    failed,
+    migration
+  };
+}
+
+function parsePositiveInteger(value, fallback = null) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseBooleanValue(value) {
+  if (typeof value === "boolean") return value;
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) return null;
+  if (["1", "true", "yes", "y", "on", "是"].includes(normalized)) return true;
+  if (["0", "false", "no", "n", "off", "否"].includes(normalized)) return false;
+  return null;
+}
+
+function resolveHumanRestEnabled(config = {}) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) return false;
+  const candidates = [
+    config.humanRestEnabled,
+    config.human_rest_enabled,
+    config.humanLikeRestEnabled,
+    config.human_like_rest_enabled
+  ];
+  for (const candidate of candidates) {
+    const parsed = parseBooleanValue(candidate);
+    if (typeof parsed === "boolean") return parsed;
+  }
+  return false;
+}
+
+function isUnlimitedTargetCountToken(value) {
+  const token = normalizeText(value).toLowerCase();
+  if (!token) return false;
+  const compact = token.replace(/\s+/g, "");
+  const withoutAnnotation = compact.replace(/[（(【[].*?[）)】\]]/gu, "");
+  const knownTokens = new Set([
+    "all",
+    "unlimited",
+    "infinity",
+    "inf",
+    "max",
+    "full",
+    "allcandidates",
+    "全部",
+    "全量",
+    "不限",
+    "扫到底",
+    "全部候选人",
+    "所有候选人",
+    "全部人选",
+    "所有人选",
+    "直到完成所有人选"
+  ]);
+  if (knownTokens.has(token) || knownTokens.has(compact) || knownTokens.has(withoutAnnotation)) return true;
+  if (/^(?:all|unlimited|infinity|inf|max|full)(?:candidate|candidates)?$/i.test(compact)) return true;
+  if (/^(?:all|unlimited|infinity|inf|max|full)(?:候选人|人选|牛人|人才|人员)?$/iu.test(withoutAnnotation)) return true;
+  if (/^(?:全部|所有|全量|不限)(?:候选人|人选|牛人|人才|人员)?$/u.test(compact)) return true;
+  if (!/\d/.test(compact) && /(?:扫到底|全部候选人|所有候选人|全部人选|所有人选)/u.test(compact)) return true;
+  return false;
+}
+
+function getWrappedTargetCountValue(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  for (const key of TARGET_COUNT_WRAPPER_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      return value[key];
+    }
+  }
+  return value;
+}
+
+export function getBossChatTargetCountValue(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(input, "target_count") && input.target_count !== undefined && input.target_count !== null) {
+    return input.target_count;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "targetCount") && input.targetCount !== undefined && input.targetCount !== null) {
+    return input.targetCount;
+  }
+  if (Object.prototype.hasOwnProperty.call(input, "target_count")) return input.target_count;
+  if (Object.prototype.hasOwnProperty.call(input, "targetCount")) return input.targetCount;
+  return undefined;
+}
+
+function cloneForDiagnostics(value) {
+  if (value === undefined) return undefined;
+  if (value === null || ["string", "number", "boolean"].includes(typeof value)) return value;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+export function buildTargetCountCompatibilityHints({
+  argumentName = "target_count",
+  recommendedArgumentPatch = { target_count: TARGET_COUNT_CANONICAL_ALL },
+  includeOptions = true
+} = {}) {
+  const normalizedArgumentName = normalizeText(argumentName) || "target_count";
+  const clonedRecommendedPatch = cloneForDiagnostics(recommendedArgumentPatch)
+    || { target_count: TARGET_COUNT_CANONICAL_ALL };
+  const literal = `${normalizedArgumentName}="${TARGET_COUNT_CANONICAL_ALL}"`;
+  const base = {
+    argument_name: normalizedArgumentName,
+    answer_format: `${normalizedArgumentName} = 正整数 | "${TARGET_COUNT_CANONICAL_ALL}"`,
+    canonical_unlimited_value: TARGET_COUNT_CANONICAL_ALL,
+    recommended_value: TARGET_COUNT_CANONICAL_ALL,
+    recommended_argument_patch: clonedRecommendedPatch,
+    accepted_examples: TARGET_COUNT_ACCEPTED_EXAMPLES.slice()
+  };
+  if (!includeOptions) return base;
+  return {
+    ...base,
+    options: [
+      {
+        label: `扫到底（必须传 ${literal}，推荐）`,
+        value: TARGET_COUNT_CANONICAL_ALL,
+        canonical_value: TARGET_COUNT_CANONICAL_ALL,
+        argument_patch: cloneForDiagnostics(clonedRecommendedPatch)
+      },
+      {
+        label: `不限（等价于 ${literal}）`,
+        value: "unlimited",
+        canonical_value: TARGET_COUNT_CANONICAL_ALL,
+        argument_patch: cloneForDiagnostics(clonedRecommendedPatch)
+      },
+      {
+        label: `全部候选人（等价于 ${literal}）`,
+        value: "全部候选人",
+        canonical_value: TARGET_COUNT_CANONICAL_ALL,
+        argument_patch: cloneForDiagnostics(clonedRecommendedPatch)
+      },
+      {
+        label: `所有候选人（等价于 ${literal}）`,
+        value: "所有候选人",
+        canonical_value: TARGET_COUNT_CANONICAL_ALL,
+        argument_patch: cloneForDiagnostics(clonedRecommendedPatch)
+      }
+    ]
+  };
+}
+
+export function normalizeTargetCountInput(value) {
+  if (value === undefined || value === null) {
+    return {
+      provided: false,
+      targetCount: null,
+      cliArg: null,
+      publicValue: null,
+      rawValue: value,
+      parseError: null
+    };
+  }
+  const unwrapped = getWrappedTargetCountValue(value);
+  if (unwrapped !== value) {
+    return normalizeTargetCountInput(unwrapped);
+  }
+  const raw = normalizeText(unwrapped);
+  if (!raw) {
+    return {
+      provided: false,
+      targetCount: null,
+      cliArg: null,
+      publicValue: null,
+      rawValue: value,
+      parseError: null
+    };
+  }
+  if (isUnlimitedTargetCountToken(raw)) {
+    return {
+      provided: true,
+      targetCount: null,
+      cliArg: "-1",
+      publicValue: "all",
+      rawValue: cloneForDiagnostics(value),
+      parseError: null
+    };
+  }
+  const parsed = Number.parseInt(String(raw), 10);
+  if (Number.isFinite(parsed) && parsed === -1) {
+    return {
+      provided: true,
+      targetCount: null,
+      cliArg: "-1",
+      publicValue: "all",
+      rawValue: cloneForDiagnostics(value),
+      parseError: null
+    };
+  }
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return {
+      provided: true,
+      targetCount: parsed,
+      cliArg: String(parsed),
+      publicValue: parsed,
+      rawValue: cloneForDiagnostics(value),
+      parseError: null
+    };
+  }
+  return {
+    provided: false,
+    targetCount: null,
+    cliArg: null,
+    publicValue: null,
+    rawValue: cloneForDiagnostics(value),
+    parseError: "target_count must be a positive integer, -1, or one of: all, unlimited, 全部, 不限, 扫到底, 全量, 全部候选人, 所有候选人"
+  };
+}
+
+function parseJsonOutput(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    try {
+      return JSON.parse(lines[index]);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function resolveBossChatCliDir(workspaceRoot) {
+  const localDir = path.join(path.resolve(String(workspaceRoot || process.cwd())), "boss-chat-cli");
+  if (pathExists(localDir)) return localDir;
+  return pathExists(VENDORED_BOSS_CHAT_DIR) ? VENDORED_BOSS_CHAT_DIR : null;
+}
+
+function resolveBossChatCliPath(workspaceRoot) {
+  const cliDir = resolveBossChatCliDir(workspaceRoot);
+  if (!cliDir) return null;
+  const cliPath = path.join(cliDir, "src", "cli.js");
+  return pathExists(cliPath) ? cliPath : null;
+}
+
+function validateRecommendScreenConfig(config) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return {
+      ok: false,
+      message: "screening-config.json 缺失或格式无效。请填写 baseUrl、apiKey、model。"
+    };
+  }
+  const baseUrl = normalizeText(config.baseUrl).replace(/\/+$/, "");
+  const apiKey = normalizeText(config.apiKey);
+  const model = normalizeText(config.model);
+  const missing = [];
+  if (!baseUrl) missing.push("baseUrl");
+  if (!apiKey) missing.push("apiKey");
+  if (!model) missing.push("model");
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message: `screening-config.json 缺少必填字段：${missing.join(", ")}。`
+    };
+  }
+  if (/^replace-with/i.test(apiKey)) {
+    return {
+      ok: false,
+      message: "screening-config.json 的 apiKey 仍是模板占位符，请填写真实 API Key。"
+    };
+  }
+  return { ok: true };
+}
+
+function resolveLlmThinkingLevel(config = {}) {
+  if (!config || typeof config !== "object") return "";
+  for (const field of LLM_THINKING_LEVEL_FIELDS) {
+    const value = normalizeText(config[field]);
+    if (value) return value;
+  }
+  return "";
+}
+
+function resolveBossChatScreenConfig(workspaceRoot) {
+  const resolution = getScreenConfigResolution(workspaceRoot);
+  const configPath = resolution.resolved_path || resolution.writable_path || resolution.legacy_path || null;
+  if (!configPath || !pathExists(configPath)) {
+    return {
+      ok: false,
+      error: {
+        code: "SCREEN_CONFIG_ERROR",
+        message: `screening-config.json 不存在。请先完成 recommend 配置。${configPath ? ` (path: ${configPath})` : ""}`
+      },
+      config_path: configPath,
+      config_dir: configPath ? path.dirname(configPath) : null
+    };
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: "SCREEN_CONFIG_ERROR",
+        message: `screening-config.json 解析失败：${error.message || "unknown error"} (path: ${configPath})`
+      },
+      config_path: configPath,
+      config_dir: path.dirname(configPath)
+    };
+  }
+  const validation = validateRecommendScreenConfig(parsed);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: {
+        code: "SCREEN_CONFIG_ERROR",
+        message: `${validation.message} (path: ${configPath})`
+      },
+      config_path: configPath,
+      config_dir: path.dirname(configPath)
+    };
+  }
+  return {
+    ok: true,
+    config: {
+      baseUrl: normalizeText(parsed.baseUrl).replace(/\/+$/, ""),
+      apiKey: normalizeText(parsed.apiKey),
+      model: normalizeText(parsed.model),
+      llmThinkingLevel: resolveLlmThinkingLevel(parsed),
+      ...resolveSharedLlmTransportConfig(parsed),
+      debugPort: parsePositiveInteger(parsed.debugPort, 9222),
+      humanRestEnabled: resolveHumanRestEnabled(parsed)
+    },
+    config_path: configPath,
+    config_dir: path.dirname(configPath)
+  };
+}
+
+function normalizeBossChatStartInput(input = {}) {
+  const profile = normalizeText(input.profile) || "default";
+  const job = normalizeText(input.job);
+  const startFromRaw = normalizeText(input.startFrom || input.start_from).toLowerCase();
+  const startFrom = startFromRaw === "all" ? "all" : startFromRaw === "unread" ? "unread" : "";
+  const criteria = normalizeText(input.criteria);
+  const greetingText = normalizeText(input.greeting_text || input.greetingText || input.greeting);
+  const parsedTarget = normalizeTargetCountInput(getBossChatTargetCountValue(input));
+  const port = parsePositiveInteger(input.port);
+  return {
+    profile,
+    job,
+    startFrom,
+    criteria,
+    greetingText,
+    targetCount: parsedTarget.targetCount,
+    targetCountArg: parsedTarget.cliArg,
+    targetCountProvided: parsedTarget.provided,
+    targetCountPublicValue: parsedTarget.publicValue,
+    targetCountRawValue: parsedTarget.rawValue,
+    targetCountParseError: parsedTarget.parseError,
+    port,
+    dryRun: input.dryRun === true || input.dry_run === true,
+    noState: input.noState === true || input.no_state === true,
+    safePacing: typeof input.safePacing === "boolean" ? input.safePacing : (
+      typeof input.safe_pacing === "boolean" ? input.safe_pacing : undefined
+    ),
+    batchRestEnabled: typeof input.batchRestEnabled === "boolean" ? input.batchRestEnabled : (
+      typeof input.batch_rest_enabled === "boolean" ? input.batch_rest_enabled : undefined
+    )
+  };
+}
+
+function normalizeBossChatRunId(input = {}) {
+  return normalizeText(input.runId || input.run_id);
+}
+
+function getMissingBossChatStartFields(input = {}) {
+  const normalized = normalizeBossChatStartInput(input);
+  const missing = [];
+  if (!normalized.job) missing.push("job");
+  if (!normalized.startFrom) missing.push("start_from");
+  if (!normalized.targetCountProvided) missing.push("target_count");
+  if (!normalized.criteria) missing.push("criteria");
+  return missing;
+}
+
+function buildTargetCountQuestionHint(item = {}) {
+  const next = { ...item };
+  const hints = buildTargetCountCompatibilityHints({
+    argumentName: "target_count",
+    recommendedArgumentPatch: { target_count: TARGET_COUNT_CANONICAL_ALL }
+  });
+  return {
+    ...next,
+    ...hints,
+    question: `请输入 target_count：正整数，或直接填写 "${TARGET_COUNT_CANONICAL_ALL}"（扫到底）。`,
+    examples: TARGET_COUNT_ACCEPTED_EXAMPLES.slice()
+  };
+}
+
+function normalizePendingQuestions(pendingQuestions = []) {
+  return pendingQuestions.map((item) => {
+    if (String(item?.field || "") !== "target_count") return item;
+    return buildTargetCountQuestionHint(item);
+  });
+}
+
+function buildNextCallExample(input = {}, missingFields = []) {
+  if (!Array.isArray(missingFields) || missingFields.length === 0) return null;
+  const normalized = normalizeBossChatStartInput(input);
+  const sample = {};
+  if (normalized.job) sample.job = normalized.job;
+  if (normalized.startFrom) sample.start_from = normalized.startFrom;
+  if (normalized.criteria) sample.criteria = normalized.criteria;
+  if (normalized.greetingText) sample.greeting_text = normalized.greetingText;
+  if (normalized.targetCountProvided) {
+    sample.target_count = normalized.targetCountPublicValue || (normalized.targetCountArg === "-1" ? "all" : normalized.targetCount);
+  } else if (missingFields.includes("target_count")) {
+    sample.target_count = "all";
+  }
+  return Object.keys(sample).length > 0 ? sample : null;
+}
+
+function buildTargetCountNeedInputDiagnostics(input = {}, missingFields = []) {
+  if (!Array.isArray(missingFields) || !missingFields.includes("target_count")) return {};
+  const normalized = normalizeBossChatStartInput(input);
+  const hints = buildTargetCountCompatibilityHints({
+    argumentName: "target_count",
+    recommendedArgumentPatch: { target_count: TARGET_COUNT_CANONICAL_ALL },
+    includeOptions: false
+  });
+  return {
+    ...hints,
+    ...(normalized.targetCountRawValue !== undefined ? { received_target_count: normalized.targetCountRawValue } : {}),
+    ...(normalized.targetCountParseError ? { target_count_parse_error: normalized.targetCountParseError } : {})
+  };
+}
+
+function buildBossChatCliArgs(command, input, resolvedConfig, runtimeLayout = null) {
+  const args = [command, "--json"];
+  if (runtimeLayout?.data_dir) {
+    args.push("--data-dir", runtimeLayout.data_dir);
+  }
+  if (command === "prepare-run") {
+    const normalized = normalizeBossChatStartInput(input);
+    args.push("--profile", normalized.profile);
+    if (normalized.job) args.push("--job", normalized.job);
+    if (normalized.startFrom) args.push("--start-from", normalized.startFrom);
+    if (normalized.criteria) args.push("--criteria", normalized.criteria);
+    if (normalized.greetingText) args.push("--greeting", normalized.greetingText);
+    if (normalized.targetCountArg) args.push("--targetCount", normalized.targetCountArg);
+    args.push("--port", String(normalized.port || resolvedConfig.debugPort || 9222));
+    args.push("--baseurl", resolvedConfig.baseUrl);
+    args.push("--apikey", resolvedConfig.apiKey);
+    args.push("--model", resolvedConfig.model);
+    if (resolvedConfig.llmThinkingLevel) {
+      args.push("--thinking-level", resolvedConfig.llmThinkingLevel);
+    }
+    if (resolvedConfig.llmTimeoutMs) {
+      args.push("--llm-timeout-ms", String(resolvedConfig.llmTimeoutMs));
+    }
+    if (resolvedConfig.llmMaxRetries) {
+      args.push("--llm-max-retries", String(resolvedConfig.llmMaxRetries));
+    }
+    return args;
+  }
+
+  if (command === "start-run") {
+    const normalized = normalizeBossChatStartInput(input);
+    args.push("--profile", normalized.profile);
+    if (normalized.dryRun) args.push("--dry-run");
+    if (normalized.noState) args.push("--no-state");
+    args.push("--job", normalized.job);
+    args.push("--start-from", normalized.startFrom);
+    args.push("--criteria", normalized.criteria);
+    if (normalized.greetingText) args.push("--greeting", normalized.greetingText);
+    if (normalized.targetCountArg) {
+      args.push("--targetCount", normalized.targetCountArg);
+    }
+    args.push("--baseurl", resolvedConfig.baseUrl);
+    args.push("--apikey", resolvedConfig.apiKey);
+    args.push("--model", resolvedConfig.model);
+    if (resolvedConfig.llmThinkingLevel) {
+      args.push("--thinking-level", resolvedConfig.llmThinkingLevel);
+    }
+    if (resolvedConfig.llmTimeoutMs) {
+      args.push("--llm-timeout-ms", String(resolvedConfig.llmTimeoutMs));
+    }
+    if (resolvedConfig.llmMaxRetries) {
+      args.push("--llm-max-retries", String(resolvedConfig.llmMaxRetries));
+    }
+    args.push("--port", String(normalized.port || resolvedConfig.debugPort || 9222));
+    if (typeof normalized.safePacing === "boolean") {
+      args.push("--safe-pacing", String(normalized.safePacing));
+    }
+    if (typeof normalized.batchRestEnabled === "boolean") {
+      args.push("--batch-rest", String(normalized.batchRestEnabled));
+    } else if (typeof resolvedConfig?.humanRestEnabled === "boolean") {
+      args.push("--batch-rest", String(resolvedConfig.humanRestEnabled));
+    }
+    return args;
+  }
+
+  const runId = normalizeBossChatRunId(input);
+  args.push("--profile", normalizeText(input.profile) || "default");
+  args.push("--run-id", runId);
+  return args;
+}
+
+function withRuntimeDiagnostics(payload, runtimeLayout) {
+  if (!payload || typeof payload !== "object") return payload;
+  return {
+    ...payload,
+    data_dir: runtimeLayout?.data_dir || null,
+    data_dir_source: runtimeLayout?.data_dir_source || null
+  };
+}
+
+async function spawnBossChatCli({ workspaceRoot, command, input = {} }) {
+  const runtimeLayout = ensureBossChatRuntimeReady(workspaceRoot);
+  const cliPath = resolveBossChatCliPath(workspaceRoot);
+  if (!cliPath) {
+    return {
+      ok: false,
+      exitCode: -1,
+      stdout: "",
+      stderr: "",
+      payload: {
+        status: "FAILED",
+        error: {
+          code: "BOSS_CHAT_CLI_MISSING",
+          message: "未找到 vendored boss-chat CLI。"
+        },
+        data_dir: runtimeLayout?.data_dir || null,
+        data_dir_source: runtimeLayout?.data_dir_source || null
+      }
+    };
+  }
+
+  const runtimeInitFailed = runtimeLayout.failed.some((item) => item.path === runtimeLayout.data_dir)
+    && !pathExists(runtimeLayout.data_dir);
+  if (runtimeInitFailed) {
+    return {
+      ok: false,
+      exitCode: 1,
+      stdout: "",
+      stderr: "",
+      payload: {
+        status: "FAILED",
+        error: {
+          code: "BOSS_CHAT_RUNTIME_INIT_FAILED",
+          message: runtimeLayout.failed
+            .filter((item) => item.path === runtimeLayout.data_dir)
+            .map((item) => item.message)
+            .join("; ") || "无法初始化 boss-chat runtime 目录。"
+        },
+        data_dir: runtimeLayout.data_dir,
+        data_dir_source: runtimeLayout.data_dir_source,
+        migration: runtimeLayout.migration
+      }
+    };
+  }
+
+  let configResolution = null;
+  if (command === "start-run" || command === "prepare-run") {
+    configResolution = resolveBossChatScreenConfig(workspaceRoot);
+    if (!configResolution.ok) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "",
+        payload: {
+          status: "FAILED",
+          error: configResolution.error,
+          config_path: configResolution.config_path,
+          config_dir: configResolution.config_dir,
+          data_dir: runtimeLayout.data_dir,
+          data_dir_source: runtimeLayout.data_dir_source
+        }
+      };
+    }
+  }
+
+  const args = [cliPath, ...buildBossChatCliArgs(command, input, configResolution?.config || {}, runtimeLayout)];
+  const cwd = path.resolve(String(workspaceRoot || process.cwd()));
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      cwd,
+      env: {
+        ...process.env,
+        BOSS_CHAT_HOME: runtimeLayout.data_dir
+      },
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", (error) => {
+      resolve({
+        ok: false,
+        exitCode: -1,
+        stdout,
+        stderr,
+        payload: {
+          status: "FAILED",
+          error: {
+            code: "BOSS_CHAT_CLI_SPAWN_FAILED",
+            message: error?.message || "无法启动 vendored boss-chat CLI。"
+          },
+          data_dir: runtimeLayout.data_dir,
+          data_dir_source: runtimeLayout.data_dir_source
+        }
+      });
+    });
+    child.on("close", (code) => {
+      const parsed = parseJsonOutput(stdout) || parseJsonOutput(stderr);
+      if (parsed && typeof parsed === "object") {
+        resolve({
+          ok: Number(code) === 0 && String(parsed.status || "").toUpperCase() !== "FAILED",
+          exitCode: Number.isInteger(code) ? code : 1,
+          stdout,
+          stderr,
+          payload: withRuntimeDiagnostics(parsed, runtimeLayout)
+        });
+        return;
+      }
+      resolve({
+        ok: Number(code) === 0,
+        exitCode: Number.isInteger(code) ? code : 1,
+        stdout,
+        stderr,
+        payload: withRuntimeDiagnostics(
+          Number(code) === 0
+            ? {
+                status: "OK",
+                message: normalizeText(stdout) || `${command} 执行成功。`
+              }
+            : {
+                status: "FAILED",
+                error: {
+                  code: "BOSS_CHAT_CLI_EXECUTION_FAILED",
+                  message: normalizeText(stderr || stdout) || `${command} 执行失败。`
+                }
+              },
+          runtimeLayout
+        )
+      });
+    });
+  });
+}
+
+export function getBossChatHealthCheck(workspaceRoot, input = {}) {
+  const cliDir = resolveBossChatCliDir(workspaceRoot);
+  const cliPath = resolveBossChatCliPath(workspaceRoot);
+  const configResolution = resolveBossChatScreenConfig(workspaceRoot);
+  const runtimeLayout = resolveBossChatRuntimeLayout(workspaceRoot);
+  const resolvedPort = parsePositiveInteger(input.port)
+    || (configResolution.ok ? configResolution.config.debugPort : 9222);
+  if (!cliDir || !cliPath) {
+    return {
+      status: "FAILED",
+      error: {
+        code: "BOSS_CHAT_CLI_MISSING",
+        message: "未找到 vendored boss-chat CLI。"
+      },
+      data_dir: runtimeLayout.data_dir,
+      data_dir_source: runtimeLayout.data_dir_source,
+      legacy_workspace_dir: runtimeLayout.legacy_workspace_dir,
+      migration_pending: runtimeLayout.migration_pending
+    };
+  }
+  if (!configResolution.ok) {
+    return {
+      status: "FAILED",
+      error: configResolution.error,
+      config_path: configResolution.config_path,
+      config_dir: configResolution.config_dir,
+      cli_dir: cliDir,
+      cli_path: cliPath,
+      data_dir: runtimeLayout.data_dir,
+      data_dir_source: runtimeLayout.data_dir_source,
+      legacy_workspace_dir: runtimeLayout.legacy_workspace_dir,
+      migration_pending: runtimeLayout.migration_pending
+    };
+  }
+  return {
+    status: "OK",
+    server: "boss-chat",
+    cli_dir: cliDir,
+    cli_path: cliPath,
+    config_path: configResolution.config_path,
+    debug_port: resolvedPort,
+    shared_llm_config: true,
+    data_dir: runtimeLayout.data_dir,
+    data_dir_source: runtimeLayout.data_dir_source,
+    legacy_workspace_dir: runtimeLayout.legacy_workspace_dir,
+    migration_source_dir: runtimeLayout.migration_source_dir,
+    migration_pending: runtimeLayout.migration_pending
+  };
+}
+
+export async function startBossChatRun({ workspaceRoot, input = {} }) {
+  const missingFields = getMissingBossChatStartFields(input);
+  if (missingFields.length > 0) {
+    const prepared = await prepareBossChatRun({ workspaceRoot, input });
+    if (prepared?.status === "FAILED") return prepared;
+    const pendingQuestions = Array.isArray(prepared?.pending_questions)
+      ? prepared.pending_questions.filter((item) => missingFields.includes(String(item?.field || "")))
+      : [];
+    const normalizedPendingQuestions = normalizePendingQuestions(pendingQuestions);
+    const nextCallExample = buildNextCallExample(input, missingFields);
+    const targetCountDiagnostics = buildTargetCountNeedInputDiagnostics(input, missingFields);
+    return {
+      ...prepared,
+      status: "NEED_INPUT",
+      required_fields: CHAT_REQUIRED_FIELDS.slice(),
+      missing_fields: missingFields,
+      pending_questions: normalizedPendingQuestions,
+      ...targetCountDiagnostics,
+      ...(nextCallExample ? { next_call_example: nextCallExample } : {}),
+      message: prepared?.message
+        || "已获取 Boss 聊天页岗位列表，请先补齐 job / start_from / target_count / criteria。"
+    };
+  }
+  return (await spawnBossChatCli({ workspaceRoot, command: "start-run", input })).payload;
+}
+
+export async function prepareBossChatRun({ workspaceRoot, input = {} }) {
+  let payload = null;
+  for (let attempt = 1; attempt <= PREPARE_BOSS_CHAT_MAX_ATTEMPTS; attempt += 1) {
+    payload = (await spawnBossChatCli({ workspaceRoot, command: "prepare-run", input })).payload;
+    if (payload?.status !== "FAILED") break;
+    if (attempt >= PREPARE_BOSS_CHAT_MAX_ATTEMPTS) break;
+    await sleep(PREPARE_BOSS_CHAT_RETRY_DELAY_MS);
+  }
+
+  if (payload?.status !== "NEED_INPUT") return payload;
+
+  const missingFields = getMissingBossChatStartFields(input);
+  const pendingQuestions = Array.isArray(payload?.pending_questions)
+    ? payload.pending_questions.filter((item) => (
+      missingFields.length === 0 || missingFields.includes(String(item?.field || ""))
+    ))
+    : [];
+  const nextCallExample = buildNextCallExample(input, missingFields);
+  const targetCountDiagnostics = buildTargetCountNeedInputDiagnostics(input, missingFields);
+  return {
+    ...payload,
+    required_fields: CHAT_REQUIRED_FIELDS.slice(),
+    missing_fields: missingFields,
+    pending_questions: normalizePendingQuestions(pendingQuestions),
+    ...targetCountDiagnostics,
+    ...(nextCallExample ? { next_call_example: nextCallExample } : {})
+  };
+}
+
+export async function getBossChatRun({ workspaceRoot, input = {} }) {
+  return (await spawnBossChatCli({ workspaceRoot, command: "get-run", input })).payload;
+}
+
+export async function pauseBossChatRun({ workspaceRoot, input = {} }) {
+  return (await spawnBossChatCli({ workspaceRoot, command: "pause-run", input })).payload;
+}
+
+export async function resumeBossChatRun({ workspaceRoot, input = {} }) {
+  return (await spawnBossChatCli({ workspaceRoot, command: "resume-run", input })).payload;
+}
+
+export async function cancelBossChatRun({ workspaceRoot, input = {} }) {
+  return (await spawnBossChatCli({ workspaceRoot, command: "cancel-run", input })).payload;
+}
+
+export async function runBossChatSync({ workspaceRoot, input = {}, pollMs = DEFAULT_BOSS_CHAT_POLL_MS }) {
+  const accepted = await startBossChatRun({ workspaceRoot, input });
+  if (accepted?.status !== "ACCEPTED" || !normalizeText(accepted.run_id)) {
+    return accepted;
+  }
+  const runId = normalizeText(accepted.run_id);
+  while (true) {
+    await sleep(pollMs);
+    const statusPayload = await getBossChatRun({
+      workspaceRoot,
+      input: {
+        profile: input.profile,
+        runId
+      }
+    });
+    const runState = normalizeText(statusPayload?.run?.state).toLowerCase();
+    if (BOSS_CHAT_TERMINAL_STATES.has(runState)) {
+      return statusPayload;
+    }
+  }
+}

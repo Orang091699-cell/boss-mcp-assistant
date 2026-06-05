@@ -1,0 +1,45 @@
+{
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "replace-with-openai-api-key",
+  "model": "gpt-4.1-mini",
+  "llmThinkingLevel": "low",
+  "llmTimeoutMs": 60000,
+  "llmMaxRetries": 3,
+  "humanRestEnabled": false,
+  "openaiOrganization": "optional-org-id",
+  "openaiProject": "optional-project-id",
+  "dimensions": {
+    "技能栈": {
+      "weight": 0.35,
+      "pass_score": 6,
+      "criteria": ["3年+ React 经验", "Node.js 后端经验", "TypeScript 熟练"]
+    },
+    "业务匹配": {
+      "weight": 0.25,
+      "pass_score": 6,
+      "criteria": ["Boss 直聘相关", "招聘 SaaS 理解"]
+    },
+    "软性素质": {
+      "weight": 0.20,
+      "pass_score": 5,
+      "criteria": ["沟通表达", "主动思考"]
+    },
+    "竞争力": {
+      "weight": 0.20,
+      "pass_score": 5,
+      "criteria": ["大厂背景优先", "开源贡献加分"]
+    }
+  },
+  "score_thresholds": {
+    "strong_recommend": 8.5,
+    "pass": 6.0
+  },
+  "recommend": {
+    "on_pass": "greet",
+    "on_fail": "close"
+  },
+  "chat": {
+    "greeting_text": "Hi同学，能麻烦发下简历吗？",
+    "rejection_text": "很抱歉，您过往经历与当前岗位不太匹配，祝您早日找到更合适的机会！"
+  }
+}
