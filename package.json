@@ -1,6 +1,6 @@
 {
   "name": "boss-mcp-assistant",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Boss MCP Assistant — CDP-only MCP service for BOSS直聘 recommend, chat, and recruit automation",
   "keywords": [
     "boss",
@@ -89,8 +89,7 @@
     "src/parser.js",
     "src/recommend-mcp.js",
     "src/recruit-mcp.js",
-    "src/run-state.js",
-    "README.md"
+    "src/run-state.js"
   ],
   "dependencies": {
     "chrome-remote-interface": "^0.33.3",
@@ -100,13 +99,16 @@
   "engines": {
     "node": ">=18"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Orang091699-cell/boss-mcp-assistant.git"
   },
-  "author": "",
+  "author": "caoyuchen <orang091699@163.com>",
   "bugs": {
     "url": "https://github.com/Orang091699-cell/boss-mcp-assistant/issues"
   },

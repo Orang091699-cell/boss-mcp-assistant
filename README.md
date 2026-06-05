@@ -1,6 +1,6 @@
 # Boss MCP Assistant
 
-**Assistant 1.0** — 基于 Chrome DevTools Protocol (CDP) 的 MCP 服务，用于 BOSS 直聘三大核心场景：**推荐页候选人筛选**、**即时通讯(IM)自动沟通**、**招聘渠道批量处理**。
+**Assistant 1.1** — 基于 Chrome DevTools Protocol (CDP) 的 MCP 服务，用于 BOSS 直聘三大核心场景：**推荐页候选人筛选**、**即时通讯(IM)自动沟通**、**招聘渠道批量处理**。
 
 ---
 
@@ -14,7 +14,7 @@
 | **通讯 (Chat)** | `prepare_boss_chat_run` → `start_boss_chat_run` | 聊天列表遍历、对话历史分析、LLM 筛选、自动打招呼/索要简历/拒绝、简历附件自动接受、实习岗位自动识别与回复 |
 | **招聘 (Recruit)** | `run_recruit_pipeline` | 招聘渠道批量搜索、简历获取、维度筛选、CSV 报告 |
 
-### 22 个 MCP 工具
+### 23 个 MCP 工具
 
 | 工具 | 用途 |
 |------|------|
@@ -55,7 +55,14 @@
 ### 安装
 
 ```bash
-npm install -g @reconcrap/boss-recommend-mcp
+npm install -g @orang091699/boss-mcp-assistant
+```
+
+全局安装后，命令行提供 `boss-recommend-mcp` 命令。
+
+也可通过 npx 直接运行：
+```bash
+npx @orang091699/boss-mcp-assistant start
 ```
 
 ### 配置
@@ -87,13 +94,16 @@ npm install -g @reconcrap/boss-recommend-mcp
 ### 启动 MCP 服务
 
 ```bash
-node src/index.js
+boss-recommend-mcp
 ```
 
-或使用 CLI：
+或使用 CLI 管理：
 
 ```bash
-node src/cli.js start
+boss-recommend-mcp start          # 启动 MCP 服务
+boss-recommend-mcp install        # 安装到 Cursor/Trae 等 MCP 客户端
+boss-recommend-mcp doctor         # 环境检查
+boss-recommend-mcp list-jobs      # 列出推荐页职位
 ```
 
 ---
@@ -103,7 +113,7 @@ node src/cli.js start
 自动滚动推荐列表 → 提取候选人画像 → LLM 多维度筛选 → 执行动作（忽略/打招呼/索要简历）。
 
 ```bash
-node src/cli.js "start_recommend_pipeline_run" \
+boss-recommend-mcp "start_recommend_pipeline_run" \
   '{"job":"后端开发","target_count":20,"criteria":"本科以上，3年+ Go 经验"}'
 ```
 
