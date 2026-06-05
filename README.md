@@ -58,7 +58,7 @@
 npm install -g boss-mcp-assistant
 ```
 
-全局安装后，命令行提供 `boss-recommend-mcp` 命令。
+全局安装后，命令行提供 `boss-mcp-assistant` 命令。
 
 也可通过 npx 直接运行：
 ```bash
@@ -67,7 +67,7 @@ npx boss-mcp-assistant start
 
 ### 配置
 
-创建 `~/.boss-recommend-mcp/screening-config.json`：
+创建 `~/.boss-mcp-assistant/screening-config.json`：
 
 ```json
 {
@@ -94,16 +94,16 @@ npx boss-mcp-assistant start
 ### 启动 MCP 服务
 
 ```bash
-boss-recommend-mcp
+boss-mcp-assistant
 ```
 
 或使用 CLI 管理：
 
 ```bash
-boss-recommend-mcp start          # 启动 MCP 服务
-boss-recommend-mcp install        # 安装到 Cursor/Trae 等 MCP 客户端
-boss-recommend-mcp doctor         # 环境检查
-boss-recommend-mcp list-jobs      # 列出推荐页职位
+boss-mcp-assistant start          # 启动 MCP 服务
+boss-mcp-assistant install        # 安装到 Cursor/Trae 等 MCP 客户端
+boss-mcp-assistant doctor         # 环境检查
+boss-mcp-assistant list-jobs      # 列出推荐页职位
 ```
 
 ---
@@ -113,7 +113,7 @@ boss-recommend-mcp list-jobs      # 列出推荐页职位
 自动滚动推荐列表 → 提取候选人画像 → LLM 多维度筛选 → 执行动作（忽略/打招呼/索要简历）。
 
 ```bash
-boss-recommend-mcp "start_recommend_pipeline_run" \
+boss-mcp-assistant "start_recommend_pipeline_run" \
   '{"job":"后端开发","target_count":20,"criteria":"本科以上，3年+ Go 经验"}'
 ```
 

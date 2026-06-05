@@ -1,13 +1,13 @@
 ---
 name: "boss-recruit-pipeline"
-description: "Use when users want Boss search/recruit-page screening via the unified boss-recommend-mcp package. Replaces the legacy boss-recruit-mcp skill."
+description: "Use when users want Boss search/recruit-page screening via the unified boss-mcp-assistant package. Replaces the legacy boss-recruit-mcp skill."
 ---
 
 # Boss Recruit Pipeline Skill
 
 ## Goal
 
-当用户要在 Boss 搜索页 / 招聘搜索页筛人时，必须走 `@reconcrap/boss-recommend-mcp` 2.x 内置的 recruit/search MCP 工具，不要安装或调用旧的 `@reconcrap/boss-recruit-mcp`。
+当用户要在 Boss 搜索页 / 招聘搜索页筛人时，必须走 `@reconcrap/boss-mcp-assistant` 2.x 内置的 recruit/search MCP 工具，不要安装或调用旧的 `@reconcrap/boss-recruit-mcp`。
 
 ## Tool Routing
 

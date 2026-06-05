@@ -102,7 +102,7 @@ function parseArgs(argv) {
     saveImage: "",
     closeDetail: true,
     callLlm: false,
-    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-recommend-mcp", "screening-config.json"),
+    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-mcp-assistant", "screening-config.json"),
     maxImagePages: 8,
     imageWheelDeltaY: 650,
     cvAcquisitionMode: "unknown",

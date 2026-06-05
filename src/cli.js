@@ -48,7 +48,7 @@ const supportedMcpClients = ["generic", "cursor", "trae", "claudecode", "opencla
 const defaultMcpServerName = "boss-recommend";
 const defaultMcpCommand = "npx";
 const recommendMcpPackageName = "@orang091699/boss-mcp-assistant";
-const recommendMcpBinaryName = "boss-recommend-mcp";
+const recommendMcpBinaryName = "boss-mcp-assistant";
 const autoSyncSkipCommands = new Set(["install", "install-skill", "where", "help", "--help", "-h", "list-jobs", "jobs", "recommend-jobs"]);
 const externalMcpTargetsEnv = "BOSS_RECOMMEND_MCP_CONFIG_TARGETS";
 const externalSkillDirsEnv = "BOSS_RECOMMEND_EXTERNAL_SKILL_DIRS";
@@ -82,7 +82,7 @@ function isInstalledPackageRoot(rootPath = packageRoot) {
     .toLowerCase();
   return (
     normalized.includes("/appdata/local/npm-cache/_npx/")
-    || normalized.includes("/node_modules/@reconcrap/boss-recommend-mcp")
+    || normalized.includes("/node_modules/@orang091699/boss-mcp-assistant")
   );
 }
 
@@ -108,7 +108,7 @@ function getCodexHome() {
 function getStateHome() {
   return process.env.BOSS_RECOMMEND_HOME
     ? path.resolve(process.env.BOSS_RECOMMEND_HOME)
-    : path.join(os.homedir(), ".boss-recommend-mcp");
+    : path.join(os.homedir(), ".boss-mcp-assistant");
 }
 
 function ensureDir(targetPath) {
@@ -304,11 +304,11 @@ function getUserConfigPath() {
 }
 
 function getLegacyUserConfigPath() {
-  return path.join(getCodexHome(), "boss-recommend-mcp", "screening-config.json");
+  return path.join(getCodexHome(), "boss-mcp-assistant", "screening-config.json");
 }
 
 function getUserCalibrationPath() {
-  return path.join(getCodexHome(), "boss-recommend-mcp", "favorite-calibration.json");
+  return path.join(getCodexHome(), "boss-mcp-assistant", "favorite-calibration.json");
 }
 
 function isUsableCalibrationFile(filePath) {
@@ -449,7 +449,7 @@ function buildNodePackageCheckLocal({ key, moduleName, cwd, missingMessage }) {
     install_cwd: cwd,
     message: probe.ok
       ? `${moduleName} npm 依赖可用`
-      : `缺少 npm 依赖 ${moduleName}，请在 boss-recommend-mcp 目录执行 npm install。`
+      : `缺少 npm 依赖 ${moduleName}，请在 boss-mcp-assistant 目录执行 npm install。`
   };
 }
 
@@ -460,19 +460,19 @@ function buildRuntimeDependencyChecksLocal({ dependencyDir = packageRoot } = {})
       key: "npm_dep_chrome_remote_interface",
       moduleName: "chrome-remote-interface",
       cwd: dependencyDir,
-      missingMessage: "无法校验 chrome-remote-interface：boss-recommend-mcp package 目录不存在。"
+      missingMessage: "无法校验 chrome-remote-interface：boss-mcp-assistant package 目录不存在。"
     }),
     buildNodePackageCheckLocal({
       key: "npm_dep_ws",
       moduleName: "ws",
       cwd: dependencyDir,
-      missingMessage: "无法校验 ws：boss-recommend-mcp package 目录不存在。"
+      missingMessage: "无法校验 ws：boss-mcp-assistant package 目录不存在。"
     }),
     buildNodePackageCheckLocal({
       key: "npm_dep_sharp",
       moduleName: "sharp",
       cwd: dependencyDir,
-      missingMessage: "无法校验 sharp：boss-recommend-mcp package 目录不存在。"
+      missingMessage: "无法校验 sharp：boss-mcp-assistant package 目录不存在。"
     })
   ];
 }
@@ -620,7 +620,7 @@ function isEphemeralWorkspaceRoot(rootPath) {
     .toLowerCase();
   return (
     normalized.includes("/appdata/local/npm-cache/_npx/")
-    || normalized.includes("/node_modules/@reconcrap/boss-recommend-mcp")
+    || normalized.includes("/node_modules/@orang091699/boss-mcp-assistant")
   );
 }
 
@@ -724,7 +724,7 @@ function buildMcpLaunchConfig(options = {}) {
   const env = parseJsonOption(options["env-json"], "env-json");
   const launchArgs = Array.isArray(args) && args.length > 0
     ? args
-    : command === "boss-recommend-mcp"
+    : command === "boss-mcp-assistant"
       ? ["start"]
       : buildDefaultMcpArgs(options);
   const launchConfig = { command, args: launchArgs };
@@ -981,7 +981,7 @@ function isBossMcpServerEntry(name, launchConfig) {
     || serialized.includes(recommendMcpPackageName.toLowerCase())
     || serialized.includes("@reconcrap/boss-recruit-mcp")
     || serialized.includes("@reconcrap/boss-chat")
-    || serialized.includes("boss-recommend-mcp")
+    || serialized.includes("boss-mcp-assistant")
     || serialized.includes("boss-recruit-mcp")
     || serialized.includes("boss-chat")
     || serialized.includes("boss recommend pipeline")
@@ -2045,7 +2045,7 @@ function buildUnsupportedCalibrateResponse(options = {}) {
     status: "FAILED",
     error: {
       code: calibrateUnsupportedCode,
-      message: "boss-recommend-mcp calibrate is fenced during the CDP-only rewrite because the old calibration route delegated to page-JS/Runtime-based adapter behavior and an external calibration script. A replacement must use CDP DOM/Input only and pass a live safe calibration gate before this command is re-enabled.",
+      message: "boss-mcp-assistant calibrate is fenced during the CDP-only rewrite because the old calibration route delegated to page-JS/Runtime-based adapter behavior and an external calibration script. A replacement must use CDP DOM/Input only and pass a live safe calibration gate before this command is re-enabled.",
       retryable: false
     },
     cdp_only: true,
@@ -2164,7 +2164,7 @@ async function printDoctor(options = {}) {
     path: resolvedConfigPath,
     message: userConfigExists
       ? `检测到配置文件（resolved_path）：${resolvedConfigPath}`
-      : "用户配置不存在（可通过 `boss-recommend-mcp init-config` 创建模板，或 `boss-recommend-mcp config set` 写入真实值）"
+      : "用户配置不存在（可通过 `boss-mcp-assistant init-config` 创建模板，或 `boss-mcp-assistant config set` 写入真实值）"
   });
   checks.push({
     key: "chrome_debug_port",
@@ -2290,33 +2290,33 @@ function printPaths() {
 }
 
 function printHelp() {
-  console.log("boss-recommend-mcp");
+  console.log("boss-mcp-assistant");
   console.log("");
   console.log("Usage:");
-  console.log("  boss-recommend-mcp              Start the MCP server");
-  console.log("  boss-recommend-mcp start        Start the MCP server");
-  console.log("  boss-recommend-mcp run          Disabled until the one-shot CLI has a CDP-only async replacement");
-  console.log("  boss-recommend-mcp list-jobs    CDP-only list of exact recommend job names for cron/one-shot inputs");
-  console.log("  boss-recommend-mcp chat <subcommand>  Run CDP-only boss-chat health/prepare/status commands");
-  console.log("  boss-recommend-mcp install      Install/migrate skills and MCP configs; replaces legacy Boss MCP routes (supports --agent trae-cn/openclaw/...)");
-  console.log("  boss-recommend-mcp install-skill Install bundled Codex skills (recommend/recruit/chat)");
-  console.log("  boss-recommend-mcp init-config  Create screening-config.json if missing (prefer workspace config/, fallback ~/.boss-recommend-mcp)");
-  console.log("  boss-recommend-mcp config set   Write baseUrl/apiKey/model (prefer workspace config/, fallback ~/.boss-recommend-mcp)");
-  console.log("  boss-recommend-mcp set-port     Persist preferred Chrome debug port to screening-config.json");
-  console.log("  boss-recommend-mcp mcp-config   Generate MCP config JSON for Cursor/Trae(含 trae-cn)/Claude Code/OpenClaw");
-  console.log("  boss-recommend-mcp doctor       Check config/runtime/calibration prerequisites (supports --agent trae-cn/cursor/...)");
-  console.log("  boss-recommend-mcp calibrate    Disabled until CDP-only featured calibration is live-verified");
-  console.log("  boss-recommend-mcp launch-chrome Launch or reuse Chrome debug instance and open Boss recommend page");
-  console.log("  boss-recommend-mcp where        Print installed package, skill, and config paths");
+  console.log("  boss-mcp-assistant              Start the MCP server");
+  console.log("  boss-mcp-assistant start        Start the MCP server");
+  console.log("  boss-mcp-assistant run          Disabled until the one-shot CLI has a CDP-only async replacement");
+  console.log("  boss-mcp-assistant list-jobs    CDP-only list of exact recommend job names for cron/one-shot inputs");
+  console.log("  boss-mcp-assistant chat <subcommand>  Run CDP-only boss-chat health/prepare/status commands");
+  console.log("  boss-mcp-assistant install      Install/migrate skills and MCP configs; replaces legacy Boss MCP routes (supports --agent trae-cn/openclaw/...)");
+  console.log("  boss-mcp-assistant install-skill Install bundled Codex skills (recommend/recruit/chat)");
+  console.log("  boss-mcp-assistant init-config  Create screening-config.json if missing (prefer workspace config/, fallback ~/.boss-mcp-assistant)");
+  console.log("  boss-mcp-assistant config set   Write baseUrl/apiKey/model (prefer workspace config/, fallback ~/.boss-mcp-assistant)");
+  console.log("  boss-mcp-assistant set-port     Persist preferred Chrome debug port to screening-config.json");
+  console.log("  boss-mcp-assistant mcp-config   Generate MCP config JSON for Cursor/Trae(含 trae-cn)/Claude Code/OpenClaw");
+  console.log("  boss-mcp-assistant doctor       Check config/runtime/calibration prerequisites (supports --agent trae-cn/cursor/...)");
+  console.log("  boss-mcp-assistant calibrate    Disabled until CDP-only featured calibration is live-verified");
+  console.log("  boss-mcp-assistant launch-chrome Launch or reuse Chrome debug instance and open Boss recommend page");
+  console.log("  boss-mcp-assistant where        Print installed package, skill, and config paths");
   console.log("");
   console.log("Run command:");
-  console.log("  boss-recommend-mcp run --instruction \"推荐页上筛选211男生，近14天没有，有大模型平台经验\"    # returns RECOMMEND_CLI_RUN_UNSUPPORTED_CDP_ONLY during rewrite; use MCP start_recommend_pipeline_run");
-  console.log("  boss-recommend-mcp list-jobs --slow-live --port 9222");
-  console.log("  boss-recommend-mcp chat prepare-run --slow-live --port 9222    # CDP-only preflight; start runs through MCP start_boss_chat_run");
-  console.log("  boss-recommend-mcp config set --base-url <url> --api-key <key> --model <model> [--thinking-level off|low|medium|high|current] [--openai-organization <id>] [--openai-project <id>]");
-  console.log("  boss-recommend-mcp install --agent trae-cn");
-  console.log("  boss-recommend-mcp doctor --agent trae-cn --page-scope featured");
-  console.log("  boss-recommend-mcp calibrate --port 9222    # returns CALIBRATE_UNSUPPORTED_CDP_ONLY during rewrite");
+  console.log("  boss-mcp-assistant run --instruction \"推荐页上筛选211男生，近14天没有，有大模型平台经验\"    # returns RECOMMEND_CLI_RUN_UNSUPPORTED_CDP_ONLY during rewrite; use MCP start_recommend_pipeline_run");
+  console.log("  boss-mcp-assistant list-jobs --slow-live --port 9222");
+  console.log("  boss-mcp-assistant chat prepare-run --slow-live --port 9222    # CDP-only preflight; start runs through MCP start_boss_chat_run");
+  console.log("  boss-mcp-assistant config set --base-url <url> --api-key <key> --model <model> [--thinking-level off|low|medium|high|current] [--openai-organization <id>] [--openai-project <id>]");
+  console.log("  boss-mcp-assistant install --agent trae-cn");
+  console.log("  boss-mcp-assistant doctor --agent trae-cn --page-scope featured");
+  console.log("  boss-mcp-assistant calibrate --port 9222    # returns CALIBRATE_UNSUPPORTED_CDP_ONLY during rewrite");
 }
 
 function printMcpConfig(options = {}) {
@@ -2415,7 +2415,7 @@ function buildUnsupportedRecommendCliRunResponse({
     status: "FAILED",
     error: {
       code: recommendCliRunUnsupportedCode,
-      message: "boss-recommend-mcp run is fenced during the CDP-only rewrite because the old one-shot CLI route can reach page-JS/Runtime-based orchestration. Use the MCP tool start_recommend_pipeline_run for CDP-only recommend runs until a live-verified one-shot CLI replacement exists.",
+      message: "boss-mcp-assistant run is fenced during the CDP-only rewrite because the old one-shot CLI route can reach page-JS/Runtime-based orchestration. Use the MCP tool start_recommend_pipeline_run for CDP-only recommend runs until a live-verified one-shot CLI replacement exists.",
       retryable: false
     },
     cdp_only: true,
@@ -2520,7 +2520,7 @@ function buildUnsupportedBossChatCliStartResponse(subcommand) {
     status: "FAILED",
     error: {
       code: bossChatCliUnsupportedStartCode,
-      message: `boss-recommend-mcp chat ${subcommand} is fenced during the CDP-only rewrite because a one-shot CLI process cannot keep the live CDP session and run lifecycle alive after it exits. Use the MCP tool start_boss_chat_run, or the live chat harness, for CDP-only chat runs.`,
+      message: `boss-mcp-assistant chat ${subcommand} is fenced during the CDP-only rewrite because a one-shot CLI process cannot keep the live CDP session and run lifecycle alive after it exits. Use the MCP tool start_boss_chat_run, or the live chat harness, for CDP-only chat runs.`,
       retryable: false
     },
     cdp_only: true,
@@ -2746,7 +2746,7 @@ export async function runCli(argv = process.argv) {
       break;
     default:
       console.error(`Unknown command: ${command}`);
-      console.error("Run `boss-recommend-mcp --help` for usage.");
+      console.error("Run `boss-mcp-assistant --help` for usage.");
       process.exitCode = 1;
   }
 }

@@ -1,9 +1,9 @@
 # boss-chat
 
-Bundled chat-page automation skill shipped with `boss-recommend-mcp`.
+Bundled chat-page automation skill shipped with `boss-mcp-assistant`.
 
-Package: `@reconcrap/boss-recommend-mcp` (npm)
-Source: `https://github.com/reconcrap-cpu/boss-recommend-mcp`
+Package: `@orang091699/boss-mcp-assistant` (npm)
+Source: `https://github.com/Orang091699-cell/boss-mcp-assistant`
 
 Use this skill when the user wants a chat-only Boss workflow without installing `boss-chat` separately.
 

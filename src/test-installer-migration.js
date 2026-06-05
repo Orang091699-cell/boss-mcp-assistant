@@ -27,7 +27,7 @@ function testMigratesLegacyMcpServers() {
       },
       "old-recommend-local": {
         command: "node",
-        args: ["C:/Users/example/Documents/boss recommend pipeline/boss-recommend-mcp/src/index.js"]
+        args: ["C:/Users/example/Documents/boss recommend pipeline/boss-mcp-assistant/src/index.js"]
       },
       "other-service": {
         command: "node",
@@ -38,7 +38,7 @@ function testMigratesLegacyMcpServers() {
 
   const result = __testables.mergeMcpServerConfigFile(mcpPath, {
     packageVersion: "2.0.1",
-    packageRootPath: path.join(tempDir, "node_modules", "@reconcrap", "boss-recommend-mcp")
+    packageRootPath: path.join(tempDir, "node_modules", "@orang091699", "boss-mcp-assistant")
   });
   const updated = readJson(mcpPath);
   const serverNames = Object.keys(updated.mcpServers).sort();
@@ -51,7 +51,7 @@ function testMigratesLegacyMcpServers() {
   assert.equal(updated.mcpServers["boss-recommend"].command, "npx");
   assert.deepEqual(updated.mcpServers["boss-recommend"].args, [
     "-y",
-    "@reconcrap/boss-recommend-mcp@2.0.1",
+    "@orang091699/boss-mcp-assistant@2.0.1",
     "start"
   ]);
 
@@ -66,7 +66,7 @@ function testCreatesCanonicalMcpServerWhenFileMissing() {
   const mcpPath = path.join(tempDir, "missing", "mcp.json");
   const result = __testables.mergeMcpServerConfigFile(mcpPath, {
     packageVersion: "2.0.1",
-    packageRootPath: path.join(tempDir, "node_modules", "@reconcrap", "boss-recommend-mcp")
+    packageRootPath: path.join(tempDir, "node_modules", "@orang091699", "boss-mcp-assistant")
   });
   const updated = readJson(mcpPath);
 
@@ -74,7 +74,7 @@ function testCreatesCanonicalMcpServerWhenFileMissing() {
   assert.deepEqual(Object.keys(updated.mcpServers), ["boss-recommend"]);
   assert.deepEqual(updated.mcpServers["boss-recommend"].args, [
     "-y",
-    "@reconcrap/boss-recommend-mcp@2.0.1",
+    "@orang091699/boss-mcp-assistant@2.0.1",
     "start"
   ]);
 }

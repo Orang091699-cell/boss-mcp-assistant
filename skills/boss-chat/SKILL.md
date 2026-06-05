@@ -1,6 +1,6 @@
 ---
 name: "boss-chat"
-description: "Use when users want Boss chat-page screening/outreach via the bundled boss-chat runtime inside boss-recommend-mcp."
+description: "Use when users want Boss chat-page screening/outreach via the bundled boss-chat runtime inside boss-mcp-assistant."
 ---
 
 # Boss Chat Skill
@@ -52,7 +52,7 @@ description: "Use when users want Boss chat-page screening/outreach via the bund
 
 ## Hard Rules
 
-- LLM 配置必须复用 `boss-recommend-mcp` 的 `screening-config.json`；不要再向用户单独要 `baseUrl/apiKey/model`。
+- LLM 配置必须复用 `boss-mcp-assistant` 的 `screening-config.json`；不要再向用户单独要 `baseUrl/apiKey/model`。
 - 路由护栏（强制）：
   - 只在用户明确是 chat-only 任务时使用本 skill。
   - 只要用户提到推荐页、先找人后沟通、或需要推荐筛选阶段，禁止直接调用 `start_boss_chat_run`；必须先交给 `boss-recommend-pipeline` 完成推荐页任务。

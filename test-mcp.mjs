@@ -15,7 +15,7 @@ const header = `Content-Length: ${Buffer.byteLength(body, "utf8")}\r\n\r\n`;
 const request = header + body;
 
 const child = spawn("node", ["src/index.js"], {
-  cwd: "C:\\Users\\yaolin\\Documents\\codex_projects\\boss recommend pipeline\\boss-recommend-mcp",
+  cwd: "C:\\Users\\yaolin\\Documents\\codex_projects\\boss recommend pipeline\\boss-mcp-assistant",
   stdio: ["pipe", "pipe", "pipe"]
 });
 

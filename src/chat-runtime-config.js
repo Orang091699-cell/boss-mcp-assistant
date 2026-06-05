@@ -19,9 +19,9 @@ function normalizeText(value) {
 }
 
 function getStateHome() {
-  return process.env.BOSS_RECOMMEND_HOME
-    ? path.resolve(process.env.BOSS_RECOMMEND_HOME)
-    : path.join(os.homedir(), ".boss-recommend-mcp");
+  return process.env.BOSS_MCP_ASSISTANT_HOME
+    ? path.resolve(process.env.BOSS_MCP_ASSISTANT_HOME)
+    : path.join(os.homedir(), ".boss-mcp-assistant");
 }
 
 function getCodexHome() {
@@ -48,7 +48,7 @@ function isEphemeralNpxWorkspaceRoot(workspaceRoot) {
   const normalized = root.replace(/\\/g, "/").toLowerCase();
   return (
     normalized.includes("/appdata/local/npm-cache/_npx/")
-    || normalized.includes("/node_modules/@reconcrap/boss-recommend-mcp")
+    || normalized.includes("/node_modules/@reconcrap/boss-mcp-assistant")
   );
 }
 
@@ -91,9 +91,9 @@ function resolveWorkspaceConfigCandidates(workspaceRoot) {
   const root = path.resolve(String(workspaceRoot || process.cwd()));
   if (shouldIgnoreWorkspaceConfigRoot(root)) return [];
   const directPath = path.join(root, "config", "screening-config.json");
-  const nestedPath = path.join(root, "boss-recommend-mcp", "config", "screening-config.json");
+  const nestedPath = path.join(root, "boss-mcp-assistant", "config", "screening-config.json");
   const candidates = [directPath];
-  if (path.basename(root).toLowerCase() !== "boss-recommend-mcp") {
+  if (path.basename(root).toLowerCase() !== "boss-mcp-assistant") {
     candidates.push(nestedPath);
   }
   return Array.from(new Set(candidates));
@@ -104,17 +104,17 @@ function getUserConfigPath() {
 }
 
 function getLegacyUserConfigPath() {
-  return path.join(getCodexHome(), "boss-recommend-mcp", "screening-config.json");
+  return path.join(getCodexHome(), "boss-mcp-assistant", "screening-config.json");
 }
 
 function getUserCalibrationPath() {
-  return path.join(getCodexHome(), "boss-recommend-mcp", "favorite-calibration.json");
+  return path.join(getCodexHome(), "boss-mcp-assistant", "favorite-calibration.json");
 }
 
 function buildScreenConfigCandidateMap(workspaceRoot) {
   return {
-    env_path: process.env.BOSS_RECOMMEND_SCREEN_CONFIG
-      ? path.resolve(process.env.BOSS_RECOMMEND_SCREEN_CONFIG)
+    env_path: process.env.BOSS_MCP_ASSISTANT_SCREEN_CONFIG
+      ? path.resolve(process.env.BOSS_MCP_ASSISTANT_SCREEN_CONFIG)
       : null,
     workspace_paths: resolveWorkspaceConfigCandidates(workspaceRoot),
     user_path: getUserConfigPath(),
@@ -187,7 +187,7 @@ function isUsableFeaturedCalibrationFile(filePath) {
 }
 
 function resolveFeaturedCalibrationPath(workspaceRoot) {
-  const fromEnv = normalizeText(process.env.BOSS_RECOMMEND_CALIBRATION_FILE || "");
+  const fromEnv = normalizeText(process.env.BOSS_MCP_ASSISTANT_CALIBRATION_FILE || "");
   if (fromEnv) return path.resolve(fromEnv);
 
   const configResolution = resolveBossScreeningConfig(workspaceRoot);
@@ -202,7 +202,7 @@ function resolveFeaturedCalibrationPath(workspaceRoot) {
 }
 
 function resolveRecruitCalibrationScriptPath(workspaceRoot) {
-  const fromEnv = normalizeText(process.env.BOSS_RECOMMEND_RECRUIT_CALIBRATION_SCRIPT || "");
+  const fromEnv = normalizeText(process.env.BOSS_MCP_ASSISTANT_RECRUIT_CALIBRATION_SCRIPT || "");
   const workspaceResolved = path.resolve(String(workspaceRoot || process.cwd()));
   const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
   const candidates = [
@@ -274,8 +274,8 @@ export function resolveBossChatDataDir() {
     };
   }
   const stateHome = getStateHome();
-  const source = process.env.BOSS_RECOMMEND_HOME
-    ? "default:env:BOSS_RECOMMEND_HOME"
+  const source = process.env.BOSS_MCP_ASSISTANT_HOME
+    ? "default:env:BOSS_MCP_ASSISTANT_HOME"
     : "default:user_home";
   return {
     data_dir: path.join(stateHome, BOSS_CHAT_RUNTIME_SUBDIR),

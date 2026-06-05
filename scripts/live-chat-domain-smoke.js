@@ -66,7 +66,7 @@ function parseArgs(argv) {
     closeResume: true,
     allowNavigate: true,
     callLlm: false,
-    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-recommend-mcp", "screening-config.json"),
+    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-mcp-assistant", "screening-config.json"),
     navigateSettleMs: 5000,
     healthTimeoutMs: 90000,
     cardTimeoutMs: 90000,

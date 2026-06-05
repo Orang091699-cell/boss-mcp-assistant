@@ -1,6 +1,6 @@
 ---
 name: "boss-recommend-pipeline"
-description: "Use when users want Boss recommend-page filtering/screening via boss-recommend-mcp. Confirm required params first, then run in two-stage confirmation with strict recommend routing."
+description: "Use when users want Boss recommend-page filtering/screening via boss-mcp-assistant. Confirm required params first, then run in two-stage confirmation with strict recommend routing."
 ---
 
 # Boss Recommend Pipeline Skill
@@ -136,14 +136,14 @@ description: "Use when users want Boss recommend-page filtering/screening via bo
 ## Featured / Latest Notes
 
 - `featured`：必须 `search -> 切换精选 tab(data-status=3) -> screen`。
-- `featured` 且缺少校准文件：先 `boss-recommend-mcp calibrate`。
+- `featured` 且缺少校准文件：先 `boss-mcp-assistant calibrate`。
 - `latest`：流程同 `recommend`，但使用最新 tab 结构（`data-status=1`）。
 
 ## Fallback CLI
 
 MCP 不可用时：
 
-`npx -y @reconcrap/boss-recommend-mcp@latest run --instruction "..." [--confirmation-json '{...}'] [--overrides-json '{...}']`
+`npx -y @reconcrap/boss-mcp-assistant@latest run --instruction "..." [--confirmation-json '{...}'] [--overrides-json '{...}']`
 
 禁止错误回退：
 

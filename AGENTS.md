@@ -1,4 +1,4 @@
-# AGENTS.md — @reconcrap/boss-recommend-mcp
+# AGENTS.md — @reconcrap/boss-mcp-assistant
 
 ## Hard rules
 
@@ -12,7 +12,7 @@
 |---------|------|
 | MCP server | `src/index.js` |
 | CLI | `src/cli.js` |
-| Bin shim | `bin/boss-recommend-mcp.js` |
+| Bin shim | `bin/boss-mcp-assistant.js` |
 | Installer (auto-run by postinstall) | `scripts/postinstall.cjs` |
 
 Three domain services: `src/domains/recommend/`, `src/domains/recruit/`, `src/domains/chat/` — each exports constants, CDP-only helpers, run-service, and an index. Wired into MCP tools via `src/recommend-mcp.js`, `src/recruit-mcp.js`, `src/chat-mcp.js`.
@@ -41,8 +41,8 @@ npm run gate:phase10-complete # 20+ candidate live completion gate
 
 ## Key paths
 
-- Runtime state: `~/.boss-recommend-mcp/runs/<run_id>.json`
-- Config (required): `~/.boss-recommend-mcp/screening-config.json` (or `BOSS_RECOMMEND_SCREEN_CONFIG`)
+- Runtime state: `~/.boss-mcp-assistant/runs/<run_id>.json`
+- Config (required): `~/.boss-mcp-assistant/screening-config.json` (or `BOSS_RECOMMEND_SCREEN_CONFIG`)
 - Legacy migration backup: `mcp.json.boss-mcp-migration-*.bak`
 - Skills bundled in `skills/` — synced to codex home on install
 

@@ -33,11 +33,11 @@ function main() {
   });
 
   if (result.error) {
-    console.warn(`[boss-recommend-mcp] postinstall warning: ${result.error.message}`);
+    console.warn(`[boss-mcp-assistant] postinstall warning: ${result.error.message}`);
     return;
   }
   if (typeof result.status === "number" && result.status !== 0) {
-    console.warn(`[boss-recommend-mcp] postinstall warning: install exited with code ${result.status}`);
+    console.warn(`[boss-mcp-assistant] postinstall warning: install exited with code ${result.status}`);
   }
 }
 

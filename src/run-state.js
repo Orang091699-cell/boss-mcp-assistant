@@ -63,7 +63,7 @@ export function getRunRetentionMs() {
 export function getStateHome() {
   return process.env.BOSS_RECOMMEND_HOME
     ? path.resolve(process.env.BOSS_RECOMMEND_HOME)
-    : path.join(os.homedir(), ".boss-recommend-mcp");
+    : path.join(os.homedir(), ".boss-mcp-assistant");
 }
 
 export function getRunsDir() {

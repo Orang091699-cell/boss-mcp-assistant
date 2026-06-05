@@ -488,7 +488,7 @@ async function testRecommendFollowUpChatRemainsFenced() {
 
 async function main() {
   const previousHome = process.env.BOSS_RECOMMEND_HOME;
-  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "boss-recommend-mcp-test-"));
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "boss-mcp-assistant-test-"));
   process.env.BOSS_RECOMMEND_HOME = tempHome;
   try {
     await testToolListIncludesRecommendTools();

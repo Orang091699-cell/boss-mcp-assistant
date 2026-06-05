@@ -111,7 +111,7 @@ const TOOL_PAUSE_RECRUIT_PIPELINE_RUN = "pause_recruit_pipeline_run";
 const TOOL_RESUME_RECRUIT_PIPELINE_RUN = "resume_recruit_pipeline_run";
 const TOOL_SET_SCREENING_CONFIG = "set_screening_config";
 
-const SERVER_NAME = "boss-recommend-mcp";
+const SERVER_NAME = "boss-mcp-assistant";
 const FRAMING_UNKNOWN = "unknown";
 const FRAMING_HEADER = "header";
 const FRAMING_LINE = "line";

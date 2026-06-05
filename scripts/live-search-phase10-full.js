@@ -97,7 +97,7 @@ function parseArgs(argv) {
     host: "127.0.0.1",
     port: 9222,
     targetUrlIncludes: RECRUIT_TARGET_URL,
-    configPath: "C:/Users/yaolin/.boss-recommend-mcp/screening-config.json",
+    configPath: "C:/Users/yaolin/.boss-mcp-assistant/screening-config.json",
     saveReport: ".live-artifacts/phase10-search-criteria-greet-live.json",
     saveCsv: "",
     saveCsvEnabled: true,

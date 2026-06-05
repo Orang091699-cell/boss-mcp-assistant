@@ -81,7 +81,7 @@ function parseArgs(argv) {
     instruction: "搜索关键词算法工程师，目标筛选1位",
     overrides: {},
     callLlm: false,
-    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-recommend-mcp", "screening-config.json"),
+    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-mcp-assistant", "screening-config.json"),
     resetTimeoutMs: 180000,
     resetSettleMs: 5000,
     searchTimeoutMs: 90000,

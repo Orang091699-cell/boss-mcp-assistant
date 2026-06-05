@@ -16,7 +16,7 @@ function parseArgs(argv) {
   const result = {
     sourcePayload: ".live-artifacts/chat-full-cv-image-fallback-live.json",
     saveReport: ".live-artifacts/chat-full-cv-image-llm-screening-live.json",
-    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-recommend-mcp", "screening-config.json"),
+    configPath: path.join(process.env.USERPROFILE || "C:\\Users\\yaolin", ".boss-mcp-assistant", "screening-config.json"),
     criteria: "候选人具备算法、数据、机器学习或软件开发相关经历",
     maxImages: 8,
     imageDetail: "high",

@@ -1,6 +1,6 @@
 {
   "name": "boss-mcp-assistant",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Boss MCP Assistant — CDP-only MCP service for BOSS直聘 recommend, chat, and recruit automation",
   "keywords": [
     "boss",
@@ -13,7 +13,7 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "boss-recommend-mcp": "bin/boss-recommend-mcp.js"
+    "boss-mcp-assistant": "bin/boss-mcp-assistant.js"
   },
   "scripts": {
     "start": "node src/index.js",
