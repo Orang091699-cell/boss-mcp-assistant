@@ -1,6 +1,6 @@
 {
   "name": "boss-mcp-assistant",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Boss MCP Assistant — CDP-only MCP service for BOSS直聘 recommend, chat, and recruit automation",
   "keywords": [
     "boss",

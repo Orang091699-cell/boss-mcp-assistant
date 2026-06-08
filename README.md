@@ -67,6 +67,46 @@ npx boss-mcp-assistant start
 
 ### 配置
 
+#### 方式一：CLI 命令行设置
+
+```bash
+# 交互式初始化（创建配置模板）
+boss-mcp-assistant init-config
+
+# 直接写入 API 参数
+boss-mcp-assistant config set \
+  --base-url https://api.openai.com/v1 \
+  --api-key sk-your-key \
+  --model gpt-4o
+
+# 可选高级参数
+boss-mcp-assistant config set \
+  --base-url https://api.openai.com/v1 \
+  --api-key sk-your-key \
+  --model gpt-4o \
+  --thinking-level off \
+  --openai-organization your-org-id \
+  --openai-project your-project-id
+```
+
+配置会优先写入工作区 `config/screening-config.json`，其次 `~/.boss-mcp-assistant/screening-config.json`。
+
+#### 方式二：通过 MCP 工具在线更新
+
+在支持 MCP 的客户端（Cursor/Trae/Claude Code）中，直接调用 `set_screening_config` 工具：
+
+```json
+{
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "sk-your-key",
+  "model": "gpt-4o"
+}
+```
+
+无需重启 MCP 服务即可生效。
+
+#### 方式三：手动编辑配置文件
+
 创建 `~/.boss-mcp-assistant/screening-config.json`：
 
 ```json
@@ -90,6 +130,55 @@ npx boss-mcp-assistant start
 ```
 
 也可通过 `set_screening_config` 工具在线更新配置。
+
+### 配置参数说明
+
+| 参数 | 必填 | 说明 | 示例 |
+|------|------|------|------|
+| `baseUrl` | 是 | LLM API 地址（兼容 OpenAI 格式） | `https://api.openai.com/v1` |
+| `apiKey` | 是 | API 密钥 | `sk-xxx` |
+| `model` | 是 | 模型名称 | `gpt-4o` / `deepseek-chat` / `claude-3-5-sonnet` |
+| `debugPort` | 否 | Chrome 远程调试端口 (默认 `9222`) | `9222` |
+| `llmThinkingLevel` | 否 | 推理模型思考层级 | `off` / `low` / `medium` / `high` |
+| `calibrationFile` | 否 | 特征标定文件路径 | `./calibration.json` |
+| `dimensions` | 否 | 自定义筛选维度（覆盖默认维度） | [见下方](#自定义维度) |
+| `score_thresholds` | 否 | 各维度通过分数线 | `{"education": 60, "experience": 50}` |
+| `recommend` | 否 | 推荐域专属配置 | `{"auto_greet": true}` |
+| `chat` | 否 | 聊天域专属配置 | `{"intern_mode": true}` |
+
+> **注意**：更换 `baseUrl`/`apiKey`/`model` 后无需重启 MCP 服务。若通过 `set_screening_config` 工具更新，立即生效；若手动编辑文件，重启 MCP 服务后生效。
+
+### 检查与诊断
+
+```bash
+# 完整环境检查（推荐首次使用前运行）
+boss-mcp-assistant doctor
+
+# 针对特定 MCP 客户端检查
+boss-mcp-assistant doctor --agent cursor
+boss-mcp-assistant doctor --agent trae-cn
+boss-mcp-assistant doctor --agent claude-code
+
+# 同时检查特征标定状态
+boss-mcp-assistant doctor --agent cursor --page-scope featured
+
+# 查看安装路径和配置位置
+boss-mcp-assistant where
+
+# 查看配置详情和候选路径
+boss-mcp-assistant init-config
+```
+
+### 常见错误原因
+
+| 错误现象 | 原因 | 解决方法 |
+|----------|------|----------|
+| `screening-config.json 缺失` | 未配置 LLM 参数 | 执行 `boss-mcp-assistant config set` 填写 baseUrl/apiKey/model |
+| `apiKey 仍是模板占位符` | 未修改默认 API Key | 重新执行 `boss-mcp-assistant config set --api-key <真实 key>` |
+| Chrome 连接失败 | Chrome 未开启远程调试端口 | 启动 Chrome 时添加 `--remote-debugging-port=9222` |
+| `npx` 相关路径错误 | 通过 npx 临时运行时工作区检测异常 | 全局安装：`npm install -g boss-mcp-assistant` |
+| MCP 工具返回超时 | Chrome 页面未加载或 BOSS 直聘未登录 | 确认 Chrome 已打开 BOSS 直聘并已登录 |
+| 校准文件缺失 | `featured` 模式缺少标定数据 | 运行 `boss-mcp-assistant doctor --page-scope featured` 查看状态 |
 
 ### 启动 MCP 服务
 
@@ -233,6 +322,12 @@ npm run gate:phase10-complete
 ---
 
 ## 维护
+
+### 检查版本
+
+```bash
+boss-mcp-assistant --version
+```
 
 ### 一键更新
 
