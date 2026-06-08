@@ -1,344 +1,451 @@
 # Boss MCP Assistant
 
-**Assistant 1.1** — 基于 Chrome DevTools Protocol (CDP) 的 MCP 服务，用于 BOSS 直聘三大核心场景：**推荐页候选人筛选**、**即时通讯(IM)自动沟通**、**招聘渠道批量处理**。
+**推荐/聊天/招聘一键自动化筛选工具** — 自动在 BOSS 直聘上帮你筛选候选人、发送消息、批量处理招聘流程。
+
+> 你只需要：打开 Chrome 浏览器 → 打开 BOSS 直聘 → 在聊天框里说"帮我筛选推荐页的人" → 它自动完成剩下的工作。
 
 ---
 
-## 功能概览
+## 一分钟快速上手
 
-### 三大业务域
+保证能跑通的最短步骤，先试起来，再慢慢看详细说明。
 
-| 域 | 入口 | 核心能力 |
-|----|------|----------|
-| **推荐 (Recommend)** | `start_recommend_pipeline_run` | 无限列表滚动、候选人画像提取、LLM 加权维度筛选、自动打招呼、CSV 报告 |
-| **通讯 (Chat)** | `prepare_boss_chat_run` → `start_boss_chat_run` | 聊天列表遍历、对话历史分析、LLM 筛选、自动打招呼/索要简历/拒绝、简历附件自动接受、实习岗位自动识别与回复 |
-| **招聘 (Recruit)** | `run_recruit_pipeline` | 招聘渠道批量搜索、简历获取、维度筛选、CSV 报告 |
+### 第 1 步：安装 Node.js（只需做一次）
 
-### 23 个 MCP 工具
+如果你电脑上已经有 Node.js，跳过这一步。
 
-| 工具 | 用途 |
-|------|------|
-| `start_recommend_pipeline_run` | 启动推荐页自动化流水线 |
-| `get_recommend_pipeline_run` | 查询推荐流水线执行状态 |
-| `cancel_recommend_pipeline_run` | 取消推荐流水线 |
-| `pause_recommend_pipeline_run` | 暂停推荐流水线 |
-| `resume_recommend_pipeline_run` | 恢复暂停的推荐流水线 |
-| `list_recommend_jobs` | 列出 CDP 可用的推荐职位 |
-| `run_featured_calibration` | 运行推荐页特征标定 |
-| `get_featured_calibration_status` | 查询特征标定状态 |
-| `run_recommend_self_heal` | 运行推荐页自愈检查 |
-| `boss_chat_health_check` | 检测聊天页面 CDP 连接和 DOM 可用性 |
-| `prepare_boss_chat_run` | 准备聊天流水线参数 |
-| `start_boss_chat_run` | 启动聊天自动化流水线 |
-| `get_boss_chat_run` | 查询聊天流水线执行状态 |
-| `pause_boss_chat_run` | 暂停聊天流水线 |
-| `resume_boss_chat_run` | 恢复聊天流水线 |
-| `cancel_boss_chat_run` | 取消聊天流水线 |
-| `run_recruit_pipeline` | 运行招聘渠道流水线 |
-| `start_recruit_pipeline_run` | 启动招聘流水线（异步模式） |
-| `get_recruit_pipeline_run` | 查询招聘流水线状态 |
-| `cancel_recruit_pipeline_run` | 取消招聘流水线 |
-| `pause_recruit_pipeline_run` | 暂停招聘流水线 |
-| `resume_recruit_pipeline_run` | 恢复招聘流水线 |
-| `set_screening_config` | 在线更新 LLM 筛选配置（apiKey/baseUrl/model） |
+**Windows 用户**：
+1. 打开 https://nodejs.org
+2. 下载左边绿色的 **LTS** 版本（推荐）
+3. 双击安装包，一路点"下一步"直到完成
+4. 安装完成后，打开"命令提示符"（按 `Win + R`，输入 `cmd`，回车）
 
----
+**Mac 用户**：
+1. 打开 https://nodejs.org
+2. 下载左边绿色的 **LTS** 版本（推荐）
+3. 双击安装包，一路点"继续"直到完成
+4. 安装完成后，打开"终端"（按 `Cmd + 空格`，搜索"终端"）
 
-## 快速开始
+### 第 2 步：复制粘贴以下命令（一次性安装）
 
-### 前置条件
-
-- Node.js >= 18
-- Chrome/Chromium 已安装，并开启远程调试端口（默认 9222）
-- BOSS 直聘已登录
-
-### 安装
+打开命令提示符（Windows）或终端（Mac），复制粘贴以下命令，按回车：
 
 ```bash
 npm install -g boss-mcp-assistant
 ```
 
-全局安装后，命令行提供 `boss-mcp-assistant` 命令。
+看到一堆文字滚动，最后出现 ✅ 或版本号就表示安装成功。
 
-也可通过 npx 直接运行：
-```bash
-npx boss-mcp-assistant start
-```
+### 第 3 步：配置你的 AI 密钥（必须）
 
-### 配置
+这个工具需要接入 AI 来帮你筛选候选人。你需要一个 API Key（可以理解成 AI 的"密码"）。
 
-#### 方式一：CLI 命令行设置
+**拿到 API Key 后**，复制粘贴以下命令（把里面的内容换成你自己的）：
 
 ```bash
-# 交互式初始化（创建配置模板）
-boss-mcp-assistant init-config
-
-# 直接写入 API 参数
-boss-mcp-assistant config set \
-  --base-url https://api.openai.com/v1 \
-  --api-key sk-your-key \
-  --model gpt-4o
-
-# 可选高级参数
-boss-mcp-assistant config set \
-  --base-url https://api.openai.com/v1 \
-  --api-key sk-your-key \
-  --model gpt-4o \
-  --thinking-level off \
-  --openai-organization your-org-id \
-  --openai-project your-project-id
+boss-mcp-assistant config set --base-url https://api.openai.com/v1 --api-key 你的API密钥 --model gpt-4o
 ```
 
-配置会优先写入工作区 `config/screening-config.json`，其次 `~/.boss-mcp-assistant/screening-config.json`。
+> ⚠️ 请把 `你的API密钥` 替换成真实的密钥，例如 `sk-xxxxxxxxxxxxxxxxxxxx`
 
-#### 方式二：通过 MCP 工具在线更新
+### 第 4 步：启动 Chrome 调试模式
 
-在支持 MCP 的客户端（Cursor/Trae/Claude Code）中，直接调用 `set_screening_config` 工具：
-
-```json
-{
-  "baseUrl": "https://api.openai.com/v1",
-  "apiKey": "sk-your-key",
-  "model": "gpt-4o"
-}
+**Windows 用户**：
+1. 关闭所有 Chrome 窗口
+2. 按 `Win + R`，输入以下命令，回车：
+```bash
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
 ```
 
-无需重启 MCP 服务即可生效。
-
-#### 方式三：手动编辑配置文件
-
-创建 `~/.boss-mcp-assistant/screening-config.json`：
-
-```json
-{
-  "baseUrl": "https://api.openai.com/v1",
-  "apiKey": "sk-your-key",
-  "model": "gpt-4o",
-  "criteria": [
-    {
-      "name": "学历",
-      "weight": 20,
-      "description": "本科及以上优先"
-    },
-    {
-      "name": "工作年限",
-      "weight": 30,
-      "description": "3年以上相关经验"
-    }
-  ]
-}
+**Mac 用户**：
+1. 关闭所有 Chrome 窗口
+2. 打开"终端"，复制粘贴以下命令，回车：
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
 ```
 
-也可通过 `set_screening_config` 工具在线更新配置。
+Chrome 会重新打开，**登录 BOSS 直聘**（重要！）。
 
-### 配置参数说明
+### 第 5 步：启动服务
 
-| 参数 | 必填 | 说明 | 示例 |
-|------|------|------|------|
-| `baseUrl` | 是 | LLM API 地址（兼容 OpenAI 格式） | `https://api.openai.com/v1` |
-| `apiKey` | 是 | API 密钥 | `sk-xxx` |
-| `model` | 是 | 模型名称 | `gpt-4o` / `deepseek-chat` / `claude-3-5-sonnet` |
-| `debugPort` | 否 | Chrome 远程调试端口 (默认 `9222`) | `9222` |
-| `llmThinkingLevel` | 否 | 推理模型思考层级 | `off` / `low` / `medium` / `high` |
-| `calibrationFile` | 否 | 特征标定文件路径 | `./calibration.json` |
-| `dimensions` | 否 | 自定义筛选维度（覆盖默认维度） | [见下方](#自定义维度) |
-| `score_thresholds` | 否 | 各维度通过分数线 | `{"education": 60, "experience": 50}` |
-| `recommend` | 否 | 推荐域专属配置 | `{"auto_greet": true}` |
-| `chat` | 否 | 聊天域专属配置 | `{"intern_mode": true}` |
-
-> **注意**：更换 `baseUrl`/`apiKey`/`model` 后无需重启 MCP 服务。若通过 `set_screening_config` 工具更新，立即生效；若手动编辑文件，重启 MCP 服务后生效。
-
-### 检查与诊断
+复制粘贴以下命令：
 
 ```bash
-# 完整环境检查（推荐首次使用前运行）
+boss-mcp-assistant start
+```
+
+看到 `MCP server running` 就成功了。保持这个窗口开着，不要关闭。
+
+### 第 6 步：在 AI 编辑器里使用
+
+在 Cursor / Trae / Claude Code 等 AI 编辑器里，直接告诉 AI：
+
+> "帮我运行 BOSS 直聘推荐页的自动化筛选，职位是后端开发，筛选 20 个候选人"
+
+AI 会自动调用工具完成剩下的工作。
+
+---
+
+## 口令模板大全（复制即用）
+
+以下所有命令，直接复制粘贴到终端即可。
+
+### 安装与更新
+
+```bash
+# 首次安装
+npm install -g boss-mcp-assistant
+
+# 查看当前版本
+boss-mcp-assistant --version
+
+# 升级到最新版
+npm update -g boss-mcp-assistant
+
+# 完全卸载（同时删除所有配置）
+npm uninstall -g boss-mcp-assistant && rm -rf ~/.boss-mcp-assistant
+```
+
+### 配置 API（选一个就行）
+
+**OpenAI（海外用户推荐）**：
+```bash
+boss-mcp-assistant config set --base-url https://api.openai.com/v1 --api-key sk-你的密钥 --model gpt-4o
+```
+
+**DeepSeek（国内用户推荐）**：
+```bash
+boss-mcp-assistant config set --base-url https://api.deepseek.com --api-key 你的密钥 --model deepseek-chat
+```
+
+**通义千问（阿里云）**：
+```bash
+boss-mcp-assistant config set --base-url https://dashscope.aliyuncs.com/compatible-mode/v1 --api-key 你的密钥 --model qwen-plus
+```
+
+**硅基流动**：
+```bash
+boss-mcp-assistant config set --base-url https://api.siliconflow.cn/v1 --api-key 你的密钥 --model Qwen/Qwen2-7B-Instruct
+```
+
+**自定义模型（任何兼容 OpenAI 格式的 API）**：
+```bash
+boss-mcp-assistant config set --base-url 你的API地址 --api-key 你的密钥 --model 模型名称
+```
+
+### 启动 Chrome 调试模式（每次使用前都要做）
+
+**Windows**：
+```bash
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+```
+
+**Mac**：
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+```
+
+> ⚠️ 如果 Chrome 安装路径不同，请在文件管理器里找到 `chrome.exe`（Windows）或 `Google Chrome`（Mac），右键 → 属性，复制完整路径替换上面的路径。
+
+### 启动服务
+
+```bash
+boss-mcp-assistant start
+```
+
+### 检查环境
+
+```bash
+# 全面检查（推荐第一次用之前运行）
 boss-mcp-assistant doctor
 
-# 针对特定 MCP 客户端检查
-boss-mcp-assistant doctor --agent cursor
-boss-mcp-assistant doctor --agent trae-cn
-boss-mcp-assistant doctor --agent claude-code
-
-# 同时检查特征标定状态
-boss-mcp-assistant doctor --agent cursor --page-scope featured
-
-# 查看安装路径和配置位置
+# 查看安装位置和配置路径
 boss-mcp-assistant where
 
-# 查看配置详情和候选路径
+# 创建配置模板（如果配置丢了）
 boss-mcp-assistant init-config
 ```
 
-### 常见错误原因
+---
 
-| 错误现象 | 原因 | 解决方法 |
+## 详细安装指南（有图有步骤）
+
+### 什么是 Node.js？为什么要装它？
+
+Node.js 是这个工具的运行环境。就像看电影需要播放器一样，运行这个工具需要 Node.js。
+
+**怎么检查有没有装 Node.js？**
+在终端里复制粘贴这个命令：
+```bash
+node --version
+```
+如果显示 `v18.x.x` 或更高的版本号（比如 `v20.x.x`、`v22.x.x`），说明已经有了，跳过安装步骤。
+
+如果显示 `'node' 不是内部或外部命令` 或 `command not found`，说明没有装，按下面步骤安装。
+
+**安装 Node.js（Windows）**：
+1. 打开浏览器，访问 https://nodejs.org
+2. 页面左边显示的是 **LTS（长期支持版）**，点击下载
+3. 下载完成后，双击安装包（`node-vxx.x.x-x64.msi`）
+4. 安装向导里全部选默认选项，一路点"Next"（下一步）
+5. 最后点"Install"（安装），等待完成
+6. 安装完成后点"Finish"（完成）
+7. 按 `Win + R`，输入 `cmd`，回车
+8. 输入 `node --version`，确认显示版本号
+
+**安装 Node.js（Mac）**：
+1. 打开浏览器，访问 https://nodejs.org
+2. 页面左边显示的是 **LTS（长期支持版）**，点击下载
+3. 下载完成后，双击安装包（`node-vxx.x.x.pkg`）
+4. 安装向导里全部选默认选项，一路点"继续"
+5. 输入你的 Mac 密码
+6. 安装完成后，打开"终端"（按 `Cmd + 空格`，搜索"终端"）
+7. 输入 `node --version`，确认显示版本号
+
+### 什么是 npm？为什么要装 npm？
+
+npm 是 Node.js 自带的"软件商店"。安装 Node.js 时 npm 会自动装好。
+
+检查 npm 是否正常：
+```bash
+npm --version
+```
+显示版本号（比如 `10.x.x`）就是正常的。
+
+如果显示 `'npm' 不是内部或外部命令`，说明 Node.js 没有安装成功，重新安装 Node.js。
+
+### 什么是 API Key？从哪里获得？
+
+API Key 是 AI 服务的"密码"。这个工具使用 AI 来分析候选人简历，所以需要一个 API Key。
+
+**方式一：使用 DeepSeek（国内用户，便宜）**
+1. 打开 https://platform.deepseek.com
+2. 注册账号 → 登录
+3. 点左边的"API Keys"
+4. 点"创建 API Key"，复制并保存好
+
+**方式二：使用通义千问（阿里云，国内用户）**
+1. 打开 https://dashscope.console.aliyun.com
+2. 用阿里云账号登录
+3. 点"API-KEY 管理"
+4. 创建新的 API Key
+
+**方式三：使用 OpenAI（海外用户，功能最强）**
+1. 打开 https://platform.openai.com
+2. 注册账号 → 登录
+3. 点右上角头像 → "API keys"
+4. 点"Create new secret key"，复制并保存好
+
+### 什么是 Chrome 远程调试模式？
+
+这个工具需要通过 Chrome 浏览器来控制 BOSS 直聘网页。远程调试模式就是让 Chrome 打开一个"控制端口"，让工具可以操作浏览器。
+
+**每次使用前都要打开这个模式**。
+
+**Windows 快捷方式（推荐）**：
+1. 在桌面找到 Chrome 图标，右键 → 属性
+2. 在"目标"框的最后面加上 ` --remote-debugging-port=9222`（注意前面有个空格）
+3. 点"确定"
+4. 以后双击这个快捷方式打开 Chrome，就会自动开启调试模式
+
+**Mac 快捷方式（推荐）**：
+1. 打开"终端"
+2. 输入以下命令创建快捷方式：
+```bash
+echo 'alias chrome-debug="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 &"' >> ~/.zshrc
+source ~/.zshrc
+```
+3. 以后每次使用前，在终端输入 `chrome-debug` 即可
+
+**检验是否开启成功**：
+在浏览器地址栏输入 `http://localhost:9222/json/version`
+- 如果显示一段 JSON 数据（一堆花括号和文字），说明开启成功
+- 如果打不开或显示"无法访问"，说明没有开启成功
+
+### 第一次启动完整流程
+
+按顺序执行以下命令：
+
+```bash
+# 1. 安装工具（只需做一次）
+npm install -g boss-mcp-assistant
+
+# 2. 配置 API（只需做一次）
+boss-mcp-assistant config set --base-url https://api.deepseek.com --api-key sk-你的密钥 --model deepseek-chat
+
+# 3. 打开 Chrome 调试模式（每次都要做）
+# Windows 用：
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+# Mac 用：
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+# 4. 在打开的 Chrome 里登录 BOSS 直聘
+
+# 5. 启动服务
+boss-mcp-assistant start
+```
+
+---
+
+## 如何更新 API / URL / Model
+
+### 方法一：命令行直接改（推荐）
+
+```bash
+# 只修改 API Key
+boss-mcp-assistant config set --api-key 你的新密钥
+
+# 同时修改 baseUrl 和 model
+boss-mcp-assistant config set --base-url https://api.deepseek.com --model deepseek-chat
+
+# 查看当前的配置
+boss-mcp-assistant doctor
+```
+
+### 方法二：在 AI 编辑器里面改
+
+在 Cursor/Trae/Claude Code 里，告诉 AI：
+
+> "帮我更新筛选配置，baseUrl 改成 xxx，apiKey 改成 xxx，model 改成 xxx"
+
+AI 会自动调用 `set_screening_config` 工具帮你更新，**不需要重启服务**。
+
+### 方法三：手动改配置文件
+
+用记事本/文本编辑打开这个文件：
+
+**Windows**：
+```
+C:\Users\你的用户名\.boss-mcp-assistant\screening-config.json
+```
+
+**Mac**：
+```
+~/.boss-mcp-assistant/screening-config.json
+```
+
+找到这三行，改成你的值：
+```json
+{
+  "baseUrl": "https://api.deepseek.com",
+  "apiKey": "sk-你的密钥",
+  "model": "deepseek-chat"
+}
+```
+
+保存文件后，**重新启动服务**（关掉当前窗口，重新运行 `boss-mcp-assistant start`）。
+
+---
+
+## 常见问题
+
+### 安装时报错
+
+| 错误提示 | 原因 | 怎么办 |
+|----------|------|--------|
+| `'npm' 不是内部或外部命令` | 没有安装 Node.js | 按上面的步骤安装 Node.js |
+| `permission denied` / `EACCES` | Mac 上没有权限 | 命令前面加 `sudo`，即 `sudo npm install -g boss-mcp-assistant` |
+| `ENEEDAUTH` / `need auth` | npm 镜像源有问题 | 运行 `npm config set registry https://registry.npmjs.org` 后再试 |
+
+### 运行时报错
+
+| 错误现象 | 原因 | 解决办法 |
 |----------|------|----------|
-| `screening-config.json 缺失` | 未配置 LLM 参数 | 执行 `boss-mcp-assistant config set` 填写 baseUrl/apiKey/model |
-| `apiKey 仍是模板占位符` | 未修改默认 API Key | 重新执行 `boss-mcp-assistant config set --api-key <真实 key>` |
-| Chrome 连接失败 | Chrome 未开启远程调试端口 | 启动 Chrome 时添加 `--remote-debugging-port=9222` |
-| `npx` 相关路径错误 | 通过 npx 临时运行时工作区检测异常 | 全局安装：`npm install -g boss-mcp-assistant` |
-| MCP 工具返回超时 | Chrome 页面未加载或 BOSS 直聘未登录 | 确认 Chrome 已打开 BOSS 直聘并已登录 |
-| 校准文件缺失 | `featured` 模式缺少标定数据 | 运行 `boss-mcp-assistant doctor --page-scope featured` 查看状态 |
+| `screening-config.json 缺失` | 忘记配置 API | 运行 `boss-mcp-assistant config set ...` 配置 API |
+| `apiKey 仍是模板占位符` | API Key 还是模板值没改 | 重新配置：`boss-mcp-assistant config set --api-key 真实的密钥` |
+| `connect ECONNREFUSED 127.0.0.1:9222` | Chrome 没有开启调试端口 | 用 `--remote-debugging-port=9222` 重新打开 Chrome |
+| 工具返回超时/没反应 | Chrome 没登录 BOSS 直聘 | 确认 Chrome 里打开了 BOSS 直聘并且已登录 |
+| `MODULE_NOT_FOUND` | 安装不完整 | 重新安装：`npm install -g boss-mcp-assistant` |
+| Chrome 窗口打不开 | 路径不对 | 找到 Chrome 的真实安装路径，替换命令中的路径 |
 
-### 启动 MCP 服务
+### 配置相关问题
 
-```bash
-boss-mcp-assistant
-```
+| 问题 | 答案 |
+|------|------|
+| 配置保存在哪里？ | `~/.boss-mcp-assistant/screening-config.json`（`~` 表示用户目录） |
+| 换了一个 API 需要重启吗？ | 如果用 `boss-mcp-assistant config set` 命令或 MCP 工具更新的，**不需要重启**；手动编辑文件的需要重启 |
+| 可以同时配置多个 API 吗？ | 只能配置一个，切换时需要重新运行 `config set` |
+| 配置丢了怎么办？ | 运行 `boss-mcp-assistant init-config` 重新创建模板 |
 
-或使用 CLI 管理：
+### Chrome 问题
 
-```bash
-boss-mcp-assistant start          # 启动 MCP 服务
-boss-mcp-assistant install        # 安装到 Cursor/Trae 等 MCP 客户端
-boss-mcp-assistant doctor         # 环境检查
-boss-mcp-assistant list-jobs      # 列出推荐页职位
-```
-
----
-
-## 推荐页流水线 (Recommend)
-
-自动滚动推荐列表 → 提取候选人画像 → LLM 多维度筛选 → 执行动作（忽略/打招呼/索要简历）。
-
-```bash
-boss-mcp-assistant "start_recommend_pipeline_run" \
-  '{"job":"后端开发","target_count":20,"criteria":"本科以上，3年+ Go 经验"}'
-```
-
-### 筛选维度
-- **学历匹配** — 解析教育背景中最高学历
-- **工作年限** — 从简历文本提取总工作年限
-- **技能匹配** — 关键词匹配（必需/加分/排除）
-- **自定义维度** — 通过 `criteria` 参数或 `screening-config.json` 配置
-
-输出 CSV 报告到 `output/` 目录。
+| 问题 | 答案 |
+|------|------|
+| 必须用 Chrome 吗？ | 也可以用 Edge、Chromium 等基于 Chromium 的浏览器，但需要找到对应的路径 |
+| 每次都要重新打开 Chrome 吗？ | 是的，每次使用前需要以调试模式打开 Chrome |
+| 可以用已经打开的 Chrome 吗？ | 不可以，必须关闭所有 Chrome 窗口后重新以调试模式打开 |
+| 打开的 Chrome 和平时用的不一样？ | 正常，调试模式会启动一个新的 Chrome 实例，你的书签和插件可能不在里面，登录 BOSS 直聘即可 |
 
 ---
 
-## 聊天流水线 (Chat)
+## 功能一览
 
-遍历候选人聊天列表 → 分析对话历史 → LLM 筛选 → 自动互动。
+### 三大核心功能
 
-### 配置参数
+| 功能 | 用来做什么 | 举个栗子 |
+|------|-----------|----------|
+| **推荐页筛选** | 自动扫描推荐页的候选人，按你的要求筛选 | "帮我筛选推荐页上学历本科以上、3年+ Go 经验的候选人" |
+| **聊天自动沟通** | 自动和候选人聊天、发消息、收简历 | "帮我给所有匹配的候选人打个招呼，问问有没有兴趣" |
+| **招聘渠道批量处理** | 在招聘搜索页批量处理和筛选 | "帮我在招聘页上搜索前端开发，筛选出符合条件的" |
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `intern_mode` | 是否开启实习岗位模式 | `false` |
-| `intern_period_question_text` | 实习周期询问话术 | "你好呀，请问实习周期和最快到岗时间是什么时候呢？" |
-| `intern_resume_request_text` | 实习简历请求话术 | "同学你好呀，方便发送一份附件简历吗" |
-| `attachment_resume_request_text` | 附件简历请求话术 | "您好，方便发送一份附件简历吗？" |
-| `resume_accept_reply_text` | 接收简历后回复语 | "收到，稍后我会交给业务评估，如果通过的话会及时和您电话约面" |
-| `auto_accept_resume` | 是否自动接受附件简历 | `false` |
-| `min_resume_text_length` | 简历最小有意义文本长度（过短则跳过） | `30` |
-| `rejection_text` | 淘汰回复话术 | "很抱歉，您过往经历与当前岗位不太匹配，祝您早日找到更合适的机会！" |
+### 23 个自动化工具
 
-### 实习岗位自动识别
-
-- 职位名称包含 `实习生` / `实习` / `intern` 时自动激活
-- 自动扫描聊天记录中的实习周期和到岗时间
-- 如缺少信息则主动询问
-- 实习周期 ≥ 3个月且通过筛选 → 自动索要附件简历
-
-### 简历过简跳过
-
-- 对在线简历进行去噪（去除 markdown 格式头）
-- 有效文本长度低于阈值时自动跳过（节省筛选成本）
-
-### 附件简历自动处理
-
-- 向候选人发送索要请求后，监听附件简历上传
-- 自动点击"接受"按钮并回复预设文案
-
----
-
-## 招聘流水线 (Recruit)
-
-批量遍历招聘渠道搜索结果 → 抓取简历 → LLM 筛选 → CSV 输出。
+| 工具名称 | 作用 |
+|----------|------|
+| `start_recommend_pipeline_run` | 开始自动筛选推荐页 |
+| `get_recommend_pipeline_run` | 查看筛选进度 |
+| `cancel_recommend_pipeline_run` | 取消正在进行的筛选 |
+| `pause_recommend_pipeline_run` | 暂停筛选 |
+| `resume_recommend_pipeline_run` | 恢复暂停的筛选 |
+| `list_recommend_jobs` | 列出可以筛选的职位 |
+| `run_featured_calibration` | 运行推荐页位置标定 |
+| `get_featured_calibration_status` | 查看标定状态 |
+| `run_recommend_self_heal` | 运行页面自愈检查 |
+| `boss_chat_health_check` | 检查聊天页面是否正常 |
+| `prepare_boss_chat_run` | 准备聊天自动化的参数 |
+| `start_boss_chat_run` | 开始自动聊天沟通 |
+| `get_boss_chat_run` | 查看聊天进度 |
+| `pause_boss_chat_run` | 暂停聊天 |
+| `resume_boss_chat_run` | 恢复聊天 |
+| `cancel_boss_chat_run` | 取消聊天 |
+| `run_recruit_pipeline` | 运行招聘渠道流程 |
+| `start_recruit_pipeline_run` | 启动招聘流程（异步） |
+| `get_recruit_pipeline_run` | 查看招聘进度 |
+| `cancel_recruit_pipeline_run` | 取消招聘 |
+| `pause_recruit_pipeline_run` | 暂停招聘 |
+| `resume_recruit_pipeline_run` | 恢复招聘 |
+| `set_screening_config` | 在线更新配置（API Key / 模型等） |
 
 ---
 
-## 核心架构
+## 在 AI 编辑器中使用（MCP 配置）
 
+### 如果你用 Cursor
+
+1. 打开 Cursor → Settings → Features → MCP Servers
+2. 点 "+ Add New MCP Server"
+3. 类型选 `command`
+4. Name 填 `boss-mcp-assistant`
+5. Command 填：
 ```
-src/
-├── index.js               # MCP 服务入口 (stdio)，注册所有工具
-├── cli.js                 # CLI 入口
-├── chat-mcp.js            # 聊天域 MCP 工具实现
-├── chat-runtime-config.js # 运行时配置管理 (含 set_screening_config)
-├── recommend-mcp.js       # 推荐域 MCP 工具实现
-├── recruit-mcp.js         # 招聘域 MCP 工具实现
-├── parser.js              # 通用解析工具
-├── run-state.js           # 流水线状态管理
-├── core/
-│   ├── browser/           # CDP 浏览器连接、DOM 操作
-│   ├── capture/           # 候选人信息抓取
-│   ├── cv-acquisition/    # 简历获取策略
-│   ├── greet-quota/       # 打招呼配额管理
-│   ├── infinite-list/     # 无限列表滚动
-│   ├── reporting/         # CSV 报告生成
-│   ├── run/               # 流水线生命周期
-│   ├── screening/         # LLM 筛选引擎、维度评分、简历简化检测
-│   └── self-heal/         # 自愈检测
-└── domains/
-    ├── chat/              # 聊天域：常量、CDP 操作、流水线编排
-    ├── recommend/         # 推荐域：常量、CDP 操作、流水线编排
-    └── recruit/           # 招聘域：常量、CDP 操作、流水线编排
+boss-mcp-assistant start
 ```
+6. 点 "Save"
 
-### 设计原则
+然后在聊天框里告诉 Cursor：
+> "帮我用 BOSS 直聘推荐页筛选一下后端开发的候选人，目标 20 个"
+> "帮我运行聊天自动化，给匹配的候选人打招呼"
 
-- **CDP-only** — 所有浏览器自动化走 Chrome DevTools Protocol，禁止 `Runtime.evaluate`
-- **无测试框架** — 每个测试文件是独立 Node.js 脚本，直接 `npm run test:<name>` 运行
-- **运行时扫描** — `npm run scan:runtime:strict` 确保无遗留 forbidden CDP 调用进入生产代码
-
----
-
-## 开发命令
+### 如果你用 Claude Code
 
 ```bash
-# 静态检查
-npm run scan:runtime:strict    # 严格运行时扫描（无违规则通过）
-npm run gate:phase9-static     # 聚合静态门禁
-
-# 单元测试
-npm run test:parser
-npm run test:core-screening
-npm run test:recommend-domain
-npm run test:chat-domain
-npm run test:chat-run-service
-npm run test:chat-mcp
-
-# 端到端测试 (需 Chrome 9222)
-npm run live:cdp-smoke
-npm run live:recommend-mcp
-npm run live:chat-mcp
-npm run live:chat-phase10-full
-
-# 完整门禁
-npm run gate:phase10-complete
+claude mcp add boss-mcp-assistant -- npx -y boss-mcp-assistant start
 ```
 
----
-
-## 维护
-
-### 检查版本
+### 如果你用 Trae（含 trae-cn）
 
 ```bash
-boss-mcp-assistant --version
-```
-
-### 一键更新
-
-```bash
-npm update -g boss-mcp-assistant
-```
-
-### 一键卸载（含配置清理）
-
-```bash
-npm uninstall -g boss-mcp-assistant && rm -rf ~/.boss-mcp-assistant
+boss-mcp-assistant install --agent trae-cn
 ```
 
 ---
