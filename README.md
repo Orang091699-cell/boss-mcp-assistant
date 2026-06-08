@@ -232,6 +232,22 @@ npm run gate:phase10-complete
 
 ---
 
+## 维护
+
+### 一键更新
+
+```bash
+npm update -g boss-mcp-assistant
+```
+
+### 一键卸载（含配置清理）
+
+```bash
+npm uninstall -g boss-mcp-assistant && rm -rf ~/.boss-mcp-assistant
+```
+
+---
+
 ## 许可
 
 MIT
