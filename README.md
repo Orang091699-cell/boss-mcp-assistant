@@ -50,21 +50,22 @@ boss-mcp-assistant config set --base-url https://api.openai.com/v1 --api-key 你
 
 ### 第 4 步：启动 Chrome 调试模式
 
-**Windows 用户**：
-1. 关闭所有 Chrome 窗口
-2. 按 `Win + R`，输入以下命令，回车：
+运行以下命令，工具会自动找到 Chrome 并以调试模式启动：
+
 ```bash
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+boss-mcp-assistant launch-chrome --port 9222
 ```
 
-**Mac 用户**：
-1. 关闭所有 Chrome 窗口
-2. 打开"终端"，复制粘贴以下命令，回车：
-```bash
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
-```
+Chrome 会打开 BOSS 直聘推荐页，**登录 BOSS 直聘**（重要！）。
 
-Chrome 会重新打开，**登录 BOSS 直聘**（重要！）。
+> ❓ 如果提示 `Chrome executable not found`，说明没有自动找到 Chrome 安装路径，可以手动指定：
+> ```bash
+> BOSS_RECOMMEND_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" boss-mcp-assistant launch-chrome --port 9222
+> ```
+> Windows 则用：
+> ```bash
+> set BOSS_RECOMMEND_CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe" && boss-mcp-assistant launch-chrome --port 9222
+> ```
 
 ### 第 5 步：启动服务
 
@@ -134,6 +135,13 @@ boss-mcp-assistant config set --base-url 你的API地址 --api-key 你的密钥 
 ```
 
 ### 启动 Chrome 调试模式（每次使用前都要做）
+
+```bash
+# ✅ 推荐：一行命令自动启动（工具会自动找到 Chrome）
+boss-mcp-assistant launch-chrome --port 9222
+```
+
+如果自动查找失败，再试手动方式：
 
 **Windows**：
 ```bash
@@ -242,20 +250,34 @@ API Key 是 AI 服务的"密码"。这个工具使用 AI 来分析候选人简�
 
 **每次使用前都要打开这个模式**。
 
-**Windows 快捷方式（推荐）**：
-1. 在桌面找到 Chrome 图标，右键 → 属性
-2. 在"目标"框的最后面加上 ` --remote-debugging-port=9222`（注意前面有个空格）
-3. 点"确定"
-4. 以后双击这个快捷方式打开 Chrome，就会自动开启调试模式
+最简单的方法是用工具自动启动：
 
-**Mac 快捷方式（推荐）**：
-1. 打开"终端"
-2. 输入以下命令创建快捷方式：
 ```bash
-echo 'alias chrome-debug="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 &"' >> ~/.zshrc
-source ~/.zshrc
+boss-mcp-assistant launch-chrome --port 9222
 ```
-3. 以后每次使用前，在终端输入 `chrome-debug` 即可
+
+工具会自动找到 Chrome 安装路径、以调试模式启动、并打开 BOSS 直聘推荐页。
+
+如果自动启动失败（提示 `Chrome executable not found`），可以手动指定 Chrome 路径：
+
+**Mac**：
+```bash
+BOSS_RECOMMEND_CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" boss-mcp-assistant launch-chrome --port 9222
+```
+
+**Windows（命令提示符 cmd）**：
+```cmd
+set BOSS_RECOMMEND_CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"
+boss-mcp-assistant launch-chrome --port 9222
+```
+
+**Windows（PowerShell）**：
+```powershell
+$env:BOSS_RECOMMEND_CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"
+boss-mcp-assistant launch-chrome --port 9222
+```
+
+> 💡 Chrome 路径确认方法：在文件管理器找到 `chrome.exe`（Windows）或 `Google Chrome`（Mac），右键 → 属性 → 复制完整路径。
 
 **检验是否开启成功**：
 在浏览器地址栏输入 `http://localhost:9222/json/version`
@@ -274,10 +296,7 @@ npm install -g boss-mcp-assistant
 boss-mcp-assistant config set --base-url https://api.deepseek.com --api-key sk-你的密钥 --model deepseek-chat
 
 # 3. 打开 Chrome 调试模式（每次都要做）
-# Windows 用：
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
-# Mac 用：
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+boss-mcp-assistant launch-chrome --port 9222
 
 # 4. 在打开的 Chrome 里登录 BOSS 直聘
 
@@ -353,10 +372,10 @@ C:\Users\你的用户名\.boss-mcp-assistant\screening-config.json
 |----------|------|----------|
 | `screening-config.json 缺失` | 忘记配置 API | 运行 `boss-mcp-assistant config set ...` 配置 API |
 | `apiKey 仍是模板占位符` | API Key 还是模板值没改 | 重新配置：`boss-mcp-assistant config set --api-key 真实的密钥` |
-| `connect ECONNREFUSED 127.0.0.1:9222` | Chrome 没有开启调试端口 | 用 `--remote-debugging-port=9222` 重新打开 Chrome |
+| `connect ECONNREFUSED 127.0.0.1:9222` | Chrome 没有开启调试端口 | 运行 `boss-mcp-assistant launch-chrome --port 9222` 重新启动 |
 | 工具返回超时/没反应 | Chrome 没登录 BOSS 直聘 | 确认 Chrome 里打开了 BOSS 直聘并且已登录 |
 | `MODULE_NOT_FOUND` | 安装不完整 | 重新安装：`npm install -g boss-mcp-assistant` |
-| Chrome 窗口打不开 | 路径不对 | 找到 Chrome 的真实安装路径，替换命令中的路径 |
+| `Chrome executable not found` | 工具没找到 Chrome 安装路径 | 设置环境变量 `BOSS_RECOMMEND_CHROME_PATH` 指定 Chrome 路径 |
 
 ### 配置相关问题
 
@@ -372,7 +391,8 @@ C:\Users\你的用户名\.boss-mcp-assistant\screening-config.json
 | 问题 | 答案 |
 |------|------|
 | 必须用 Chrome 吗？ | 也可以用 Edge、Chromium 等基于 Chromium 的浏览器，但需要找到对应的路径 |
-| 每次都要重新打开 Chrome 吗？ | 是的，每次使用前需要以调试模式打开 Chrome |
+| 每次都用 `launch-chrome` 吗？ | 是的，运行 `boss-mcp-assistant launch-chrome --port 9222` 即可。如果 Chrome 已经在调试模式运行，它会自动复用 |
+| 可以用已经打开的 Chrome 吗？ | 不可以，必须用 `launch-chrome` 或以 `--remote-debugging-port=9222` 参数启动 Chrome |
 | 可以用已经打开的 Chrome 吗？ | 不可以，必须关闭所有 Chrome 窗口后重新以调试模式打开 |
 | 打开的 Chrome 和平时用的不一样？ | 正常，调试模式会启动一个新的 Chrome 实例，你的书签和插件可能不在里面，登录 BOSS 直聘即可 |
 
