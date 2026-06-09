@@ -438,6 +438,145 @@ C:\Users\你的用户名\.boss-mcp-assistant\screening-config.json
 
 ---
 
+## AI 指令模板（复制即用）
+
+以下模板可直接复制并在 Cursor / Claude Code / Trae 等 AI 编辑器中发送给 AI，AI 会自动调用对应 MCP 工具完成操作。
+
+### 推荐页筛选
+
+```
+请调用 boss-mcp-assistant 的推荐页筛选工具，帮我筛选 BOSS 直聘推荐页的候选人，端口 9222。
+
+请先调用 list_recommend_jobs 读取岗位列表，然后使用我指定的岗位。
+
+页面范围：recommend
+岗位：<从 list_recommend_jobs 获取的完整岗位名称>
+学校标签：不限
+学历：本科、硕士、博士
+性别：不限
+近14天没有：近14天没有
+筛选标准：
+<写你的筛选条件>
+
+目标数量：20
+通过后动作：greet
+打招呼上限：20
+
+我已经确认以上所有条件。
+请先调用 list_recommend_jobs 读取岗位列表。
+如果成功获取岗位列表后，调用 start_recommend_pipeline_run 启动任务。
+如果返回 NEED_CONFIRMATION，请根据 pending_questions 补齐确认字段后再调用一次。
+返回 ACCEPTED 和 run_id 后停止，不要自动轮询。
+```
+
+| 参数 | 可选值 | 说明 |
+|------|--------|------|
+| 页面范围 | `recommend` / `featured` / `latest` | 三个 tab 之一 |
+| 学校标签 | `不限` / `985` / `211` / `双一流院校` / `留学` / `国内外名校` / `公办本科` | 可传数组 |
+| 学历 | `不限` / `本科` / `硕士` / `博士` | 可传数组 |
+| 性别 | `不限` / `男` / `女` | — |
+| 近14天没有 | `不限` / `近14天没有` | — |
+| 通过后动作 | `favorite` / `greet` / `none` | greet=打招呼 |
+
+**真实示例**（直接复制，改参数即可用）：
+
+```
+请调用 boss-mcp-assistant 的推荐页筛选工具，帮我筛选 BOSS 直聘推荐页的候选人，端口 9222。
+
+请先调用 list_recommend_jobs 读取岗位列表，然后使用我指定的岗位。
+
+页面范围：recommend
+岗位：海外众筹运营专员（内容/社群方向） _ 北京 25-40K
+学校标签：不限
+学历：本科、硕士、博士
+性别：不限
+近14天没有：近14天没有
+筛选标准：
+科技产品的内容运营/市场运营/产品营销经验；
+具备海外内容运营、英文内容撰写、海外社媒运营或跨文化传播经验；
+有社群运营经验，海外社群运营经验优先；
+有 Kickstarter、Indiegogo、Crowdfunding、Product Hunt、众筹预热、众筹页面内容、众筹更新、Backer 沟通经验者优先；
+排除仅有国内公众号、小红书、抖音、私域、电商直播经验且无海外内容/英文/科技产品经验的候选人。
+
+目标数量：20
+通过后动作：greet
+打招呼上限：20
+
+我已经确认以上所有条件。
+请先调用 list_recommend_jobs 读取岗位列表。
+如果成功获取岗位列表后，调用 start_recommend_pipeline_run 启动任务。
+如果返回 NEED_CONFIRMATION，请根据 pending_questions 补齐确认字段后再调用一次。
+返回 ACCEPTED 和 run_id 后停止，不要自动轮询。
+```
+
+### 聊天页自动沟通
+
+```
+请调用 boss-mcp-assistant 的聊天自动沟通工具，帮我筛选 BOSS 直聘聊天页的候选人，端口 9222。
+
+请先调用 prepare_boss_chat_run 读取岗位列表，然后使用我指定的岗位。
+
+岗位：<从 prepare_boss_chat_run 获取的完整岗位名称>
+起始范围：unread
+目标数量：all
+筛选标准：
+<写你的筛选条件>
+打招呼消息：Hi，看了您的简历觉得比较匹配，方便沟通下吗？
+通过后动作：request_cv（附带打招呼消息）
+
+我已经确认以上所有条件。
+请调用 start_boss_chat_run 启动任务。
+如果返回 NEED_INPUT 或 NEED_CONFIRMATION，请根据提示补齐字段后再调用一次。
+返回 ACCEPTED 和 run_id 后停止，不要自动轮询。
+```
+
+| 参数 | 可选值 | 说明 |
+|------|--------|------|
+| 岗位 | 从 `prepare_boss_chat_run` 获取 | 支持岗位名称 / 编号 / value |
+| 起始范围 | `unread` / `all` | 未读或全部 |
+| 目标数量 | 数字 / `all` | `all` = 扫到底 |
+| 筛选标准 | 自然语言描述 | — |
+| 打招呼消息 | 自定义文本 | 首条打招呼内容 |
+| 通过后动作 | `request_cv` / `ask_cv` / `求简历` | 请求对方发送简历 |
+
+**真实示例**：
+
+```
+请调用 boss-mcp-assistant 的聊天自动沟通工具，帮我筛选 BOSS 直聘聊天页的候选人，端口 9222。
+
+请先调用 prepare_boss_chat_run 读取岗位列表，然后使用我指定的岗位。
+
+岗位：资深后端开发工程师 _ 北京 35-50K
+起始范围：unread
+目标数量：all
+筛选标准：
+5年以上后端开发经验，精通 Go 或 Java；
+有分布式系统设计经验；
+有高并发、微服务架构经验；
+排除只有前端或运维经验的候选人。
+打招呼消息：Hi，看了您的技术背景觉得比较匹配我们后端团队的职位，方便沟通下吗？
+通过后动作：request_cv
+
+我已经确认以上所有条件。
+请调用 start_boss_chat_run 启动任务。
+如果返回 NEED_INPUT 或 NEED_CONFIRMATION，请根据提示补齐字段后再调用一次。
+返回 ACCEPTED 和 run_id 后停止，不要自动轮询。
+```
+
+### 执行流程说明
+
+| 步骤 | 推荐页 | 聊天页 |
+|------|--------|--------|
+| 1. 读取岗位 | `list_recommend_jobs` | `prepare_boss_chat_run` |
+| 2. 启动任务 | `start_recommend_pipeline_run` | `start_boss_chat_run` |
+| 3. 补齐确认 | 若返回 `NEED_CONFIRMATION`，按 `pending_questions` 补齐 | 同左 |
+| 4. 查看状态 | `get_recommend_run(run_id)` | `get_boss_chat_run(run_id)` |
+| 暂停 | `pause_recommend_pipeline_run` | `pause_boss_chat_run` |
+| 恢复 | `resume_recommend_pipeline_run` | `resume_boss_chat_run` |
+| 取消 | `cancel_recommend_pipeline_run` | `cancel_boss_chat_run` |
+
+---
+
 ## 在 AI 编辑器中使用（MCP 配置）
 
 ### 如果你用 Cursor
