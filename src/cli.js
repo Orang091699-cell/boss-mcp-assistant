@@ -1360,8 +1360,12 @@ async function setScreeningConfig(options = {}) {
   const baseUrl = String(options["base-url"] || options.baseUrl || "").trim();
   const apiKey = String(options["api-key"] || options.apiKey || "").trim();
   const model = String(options.model || "").trim();
-  if (!baseUrl || !apiKey || !model) {
-    throw new Error("Missing required fields: --base-url, --api-key, --model");
+  const missing = [];
+  if (!baseUrl) missing.push("--base-url");
+  if (!apiKey) missing.push("--api-key");
+  if (!model) missing.push("--model");
+  if (missing.length > 0) {
+    throw new Error("Missing required fields: " + missing.join(", "));
   }
 
   const { config: existing } = await loadBestExistingUserConfig(options);
