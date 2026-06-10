@@ -49,7 +49,7 @@ const defaultMcpServerName = "boss-recommend";
 const defaultMcpCommand = "npx";
 const recommendMcpPackageName = "@orang091699/boss-mcp-assistant";
 const recommendMcpBinaryName = "boss-mcp-assistant";
-const autoSyncSkipCommands = new Set(["install", "install-skill", "where", "help", "--help", "-h", "list-jobs", "jobs", "recommend-jobs"]);
+const autoSyncSkipCommands = new Set(["install", "install-skill", "where", "help", "--help", "-h", "version", "--version", "-v", "list-jobs", "jobs", "recommend-jobs"]);
 const externalMcpTargetsEnv = "BOSS_RECOMMEND_MCP_CONFIG_TARGETS";
 const externalSkillDirsEnv = "BOSS_RECOMMEND_EXTERNAL_SKILL_DIRS";
 const installConfigDefaults = Object.freeze({
@@ -2293,6 +2293,15 @@ function printPaths() {
   console.log(`desktop_output_default=${getDesktopDir()}`);
 }
 
+function printVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    console.log(pkg.version || "0.0.0");
+  } catch {
+    console.log("0.0.0");
+  }
+}
+
 function printHelp() {
   console.log("boss-mcp-assistant");
   console.log("");
@@ -2742,6 +2751,11 @@ export async function runCli(argv = process.argv) {
       break;
     case "where":
       await printPaths();
+      break;
+    case "version":
+    case "--version":
+    case "-v":
+      printVersion();
       break;
     case "help":
     case "--help":

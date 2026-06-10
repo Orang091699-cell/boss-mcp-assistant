@@ -12,6 +12,12 @@ import {
   scrollNodeByWheel,
   sleep
 } from "../../core/browser/index.js";
+import path from "node:path";
+import {
+  captureNodeScreenshot as captureNodeImage,
+  captureScrolledNodeScreenshots,
+  captureViewportScreenshot
+} from "../../core/capture/index.js";
 import {
   buildScreeningCandidateFromDetail,
   htmlToText
@@ -1424,6 +1430,58 @@ export async function scrollResumeContent(client, resumeState, {
   return { scrolled: true, node: scrollTarget.selector || "resume_container" };
 }
 
+export async function captureChatAreaScreenshot(client, {
+  captureDir,
+  metadata = {}
+} = {}) {
+  if (!captureDir) return null;
+  const rootState = await getChatRoots(client);
+  const target = await findVisibleTarget(client, rootState.roots, CHAT_MESSAGE_LIST_SELECTORS);
+  if (!target?.node_id) {
+    const viewportResult = await captureViewportScreenshot(client, {
+      filePath: path.join(captureDir, "chat-area.png"),
+      metadata: { ...metadata, fallback: "viewport" }
+    });
+    return viewportResult;
+  }
+  const result = await captureNodeImage(client, target.node_id, {
+    filePath: path.join(captureDir, "chat-area.png"),
+    padding: 4,
+    metadata: { ...metadata, selector: target.selector }
+  });
+  return result;
+}
+
+export async function captureResumeScreenshots(client, resumeState, {
+  captureDir,
+  maxScreenshots = 6,
+  wheelDeltaY = 650,
+  settleMs = 900,
+  metadata = {}
+} = {}) {
+  if (!captureDir) return null;
+  const node = captureNodeIdFromResumeState(resumeState);
+  if (!node?.node_id) return null;
+  return captureScrolledNodeScreenshots(client, node.node_id, {
+    filePath: path.join(captureDir, "resume.png"),
+    maxScreenshots,
+    wheelDeltaY,
+    settleMs,
+    format: "png",
+    padding: 4,
+    metadata: { ...metadata, selector: node.selector || "resume_content" }
+  });
+}
+
+function captureNodeIdFromResumeState(resumeState) {
+  if (resumeState?.content?.node_id) return { node_id: resumeState.content.node_id, selector: resumeState.content.selector };
+  if (resumeState?.popup?.node_id) return { node_id: resumeState.popup.node_id, selector: resumeState.popup.selector };
+  if (resumeState?.resumeIframe?.node_id) {
+    return { node_id: resumeState.resumeIframe.node_id, selector: resumeState.resumeIframe.selector };
+  }
+  return null;
+}
+
 export async function extractChatProfileCandidate(client, {
   cardCandidate,
   cardNodeId,
@@ -1431,11 +1489,14 @@ export async function extractChatProfileCandidate(client, {
   resumeHtml: providedResumeHtml = null,
   networkEvents = [],
   targetUrl = "",
-  closeResume = true
+  closeResume = true,
+  captureDir,
+  chatMessagesText = ""
 } = {}) {
   await sleep(1000);
   const networkBodies = await readChatProfileNetworkBodies(client, networkEvents);
   let resumeHtml = providedResumeHtml || null;
+  let resumeScreenshots = null;
   if (!resumeHtml) {
     try {
       const scrollResult = await scrollResumeContent(client, resumeState);
@@ -1446,11 +1507,21 @@ export async function extractChatProfileCandidate(client, {
       resumeHtml = emptyChatResumeHtml(error);
     }
   }
-  const detailText = [
+  if (captureDir) {
+    try {
+      resumeScreenshots = await captureResumeScreenshots(client, resumeState, {
+        captureDir,
+        maxScreenshots: 8,
+        metadata: { run_candidate_index: -1 }
+      });
+    } catch {}
+  }
+  const resumeText = [
     resumeHtml.popupText,
     resumeHtml.contentText,
     resumeHtml.resumeIframeText
   ].filter(Boolean).join("\n\n");
+  const detailText = [chatMessagesText, resumeText].filter(Boolean).join("\n\n---\n\n");
 
   const detailCandidateResult = buildScreeningCandidateFromDetail({
     domain: "chat",
@@ -1487,7 +1558,9 @@ export async function extractChatProfileCandidate(client, {
     },
     resume_html_read_error: resumeHtml.readError || null,
     scroll_before_read: resumeHtml.scroll_before_read || null,
-    close_result: closeResult
+    close_result: closeResult,
+    chat_messages_text: chatMessagesText || null,
+    resume_screenshots: resumeScreenshots
   };
 }
 

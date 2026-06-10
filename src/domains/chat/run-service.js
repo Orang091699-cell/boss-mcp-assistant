@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { captureScrolledNodeScreenshots } from "../../core/capture/index.js";
 import {
   clickPoint,
@@ -44,6 +47,7 @@ import {
 } from "./cards.js";
 import {
   acceptAndReplyAttachmentResume,
+  captureChatAreaScreenshot,
   closeChatResumeModal,
   createChatProfileNetworkRecorder,
   extractChatProfileCandidate,
@@ -57,7 +61,8 @@ import {
   setChatEditorMessage,
   waitForChatOnlineResumeButton,
   waitForChatProfileNetworkEvents,
-  waitForChatResumeContent
+  waitForChatResumeContent,
+  waitForChatResumeModal
 } from "./detail.js";
 import { selectChatJob } from "./jobs.js";
 import {
@@ -112,7 +117,9 @@ function compactDetail(detailResult) {
     cv_acquisition: detailResult.cv_acquisition || null,
     image_evidence: summarizeImageEvidence(detailResult.image_evidence),
     llm_screening: compactLlmResult(detailResult.llm_result),
-    close_result: detailResult.close_result
+    close_result: detailResult.close_result,
+    chat_messages_text_length: detailResult.chat_messages_text?.length || 0,
+    resume_screenshot_count: detailResult.resume_screenshots?.screenshot_count || 0
   };
 }
 
@@ -418,6 +425,8 @@ export async function runChatWorkflow({
   listFallbackPoint = null,
   minResumeTextLength = 30,
   internMode = false,
+  enableChatCapture = false,
+  chatCaptureRootDir = "",
   internPeriodQuestionText = "你好呀，请问实习周期和最快到岗时间是什么时候呢？",
   internResumeRequestText = "同学你好呀，方便发送一份附件简历吗",
   attachmentResumeRequestText = "您好，方便发送一份附件简历吗？",
@@ -719,6 +728,31 @@ export async function runChatWorkflow({
           }
         }
 
+        let chatCaptureDir = "";
+        let chatMessagesText = "";
+        if (!detailResult && enableChatCapture) {
+          detailStep = "capture_chat_evidence";
+          try {
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const safeJob = String(job || "unknown").replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_").slice(0, 40);
+            const safeName = String(candidateKey || `candidate-${String(index).padStart(3, "0")}`).replace(/[^a-zA-Z0-9\u4e00-\u9fff_-]/g, "_").slice(0, 30);
+            const baseDir = chatCaptureRootDir || path.join(os.homedir(), "Desktop");
+            chatCaptureDir = path.join(baseDir, dateStr, safeJob, safeName);
+            fs.mkdirSync(chatCaptureDir, { recursive: true });
+            const chatMsgResult = await captureChatAreaScreenshot(client, {
+              captureDir: chatCaptureDir,
+              metadata: { run_candidate_index: index, candidate_key: candidateKey }
+            });
+            const msgs = await readChatConversationMessages(client);
+            if (msgs.ok) {
+              chatMessagesText = msgs.text;
+              if (chatMsgResult?.file_path) {
+                chatMessagesText += `\n\n[聊天区域截图: ${chatMsgResult.file_path}]`;
+              }
+            }
+          } catch {}
+        }
+
         if (!detailResult) {
           detailStep = "open_online_resume";
           networkRecorder.clear();
@@ -767,7 +801,9 @@ export async function runChatWorkflow({
                 resumeNetworkEvents
               ),
               targetUrl,
-              closeResume: false
+              closeResume: false,
+              captureDir: chatCaptureDir || undefined,
+              chatMessagesText: chatMessagesText || undefined
             });
             parsedNetworkProfileCount = countParsedNetworkProfiles(detailResult);
             if (parsedNetworkProfileCount > 0) {
@@ -804,7 +840,9 @@ export async function runChatWorkflow({
                 resumeNetworkEvents
               ),
               targetUrl,
-              closeResume: false
+              closeResume: false,
+              captureDir: chatCaptureDir || undefined,
+              chatMessagesText: chatMessagesText || undefined
             });
             parsedNetworkProfileCount = countParsedNetworkProfiles(detailResult);
           }
@@ -1149,6 +1187,8 @@ export function createChatRunService({
     attachmentResumeRequestText = "您好，方便发送一份附件简历吗？",
     resumeAcceptReplyText = "收到，稍后我会交给业务评估，如果通过的话会及时和您电话约面",
     autoAcceptAttachmentResume = false,
+    enableChatCapture = false,
+    chatCaptureRootDir = "",
     name = "chat-domain-run"
   } = {}) {
     if (!client) throw new Error("startChatRun requires a guarded CDP client");
@@ -1234,7 +1274,9 @@ export function createChatRunService({
         internResumeRequestText,
         attachmentResumeRequestText,
         resumeAcceptReplyText,
-        autoAcceptAttachmentResume
+        autoAcceptAttachmentResume,
+        enableChatCapture,
+        chatCaptureRootDir
       }, runControl)
     });
   }
